@@ -23,21 +23,32 @@ def main(config):
         os.makedirs(config.result_dir)
 
     # Data loader.
-    celeba_loader = None
-    rafd_loader = None
+    celeba_args = None
+    rafd_args = None
 
     if config.dataset in ['CelebA', 'Both']:
-        celeba_loader = get_loader(config.celeba_image_dir, config.attr_path, config.selected_attrs,
-                                   config.celeba_crop_size, config.image_size, config.batch_size,
-                                   'CelebA', config.mode, config.num_workers)
+        celeba_args = {'dataset':config.dataset,
+        'img_dir': config.celeba_image_dir,
+        'attr_path': config.attr_path,
+        'selected_attrs': config.selected_attrs,
+        'crop_size': config.celeba_crop_size,
+        'mode': config.mode,
+        'num_workers': config.num_workers}
     if config.dataset in ['RaFD', 'Both']:
-        rafd_loader = get_loader(config.rafd_image_dir, None, None,
-                                 config.rafd_crop_size, config.image_size, config.batch_size,
-                                 'RaFD', config.mode, config.num_workers)
+        # rafd_loader = get_loader(config.rafd_image_dir, None, None,
+        #                          config.rafd_crop_size, config.image_size, config.batch_size,
+        #                          'RaFD', config.mode, config.num_workers)
+        rafd_args = {'dataset':config.dataset,
+        'img_dir': config.rafd_image_dir,
+        'attr_path': None,
+        'selected_attrs': None,
+        'crop_size': config.rafd_crop_size,
+        'mode': config.mode,
+        'num_workers': config.num_workers}
     
 
     # Solver for training and testing StarGAN.
-    solver = Solver(celeba_loader, rafd_loader, config)
+    solver = Solver(celeba_args, rafd_args, config)
 
     if config.mode == 'train':
         if config.dataset in ['CelebA', 'RaFD']:
@@ -71,11 +82,11 @@ if __name__ == '__main__':
     # Training configuration.
     parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both'])
     parser.add_argument('--batch_size', type=int, default=16, help='mini-batch size')
-    parser.add_argument('--num_iters', type=int, default=200000, help='number of total iterations for training D')
-    parser.add_argument('--num_iters_decay', type=int, default=100000, help='number of iterations for decaying lr')
+    parser.add_argument('--num_iters', type=int, default=10000, help='number of total iterations for training D')
+    parser.add_argument('--num_iters_decay', type=int, default=2000, help='number of iterations for decaying lr')
     parser.add_argument('--g_lr', type=float, default=0.0001, help='learning rate for G')
     parser.add_argument('--d_lr', type=float, default=0.0001, help='learning rate for D')
-    parser.add_argument('--n_critic', type=int, default=5, help='number of D updates per each G update')
+    parser.add_argument('--n_critic', type=int, default=1, help='number of D updates per each G update')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for Adam optimizer')
     parser.add_argument('--beta2', type=float, default=0.999, help='beta2 for Adam optimizer')
     parser.add_argument('--resume_iters', type=int, default=None, help='resume training from this step')
@@ -106,5 +117,5 @@ if __name__ == '__main__':
     parser.add_argument('--lr_update_step', type=int, default=1000)
 
     config = parser.parse_args()
-    print(config)
+    # print(config)
     main(config)

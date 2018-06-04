@@ -8,17 +8,25 @@ import numpy as np
 import os
 import time
 import datetime
+from torchvision import transforms as T
+from data_loader import get_loader
+import sys
 
+
+
+def requires_grad(model, flag=True):
+    for p in model.parameters():
+        p.requires_grad = flag
 
 class Solver(object):
     """Solver for training and testing StarGAN."""
 
-    def __init__(self, celeba_loader, rafd_loader, config):
+    def __init__(self, celeba_args, rafd_args, config):
         """Initialize configurations."""
 
         # Data loader.
-        self.celeba_loader = celeba_loader
-        self.rafd_loader = rafd_loader
+        self.celeba_args = celeba_args
+        self.rafd_args = rafd_args
 
         # Model configurations.
         self.c_dim = config.c_dim
@@ -44,7 +52,7 @@ class Solver(object):
         self.beta2 = config.beta2
         self.resume_iters = config.resume_iters
         self.selected_attrs = config.selected_attrs
-
+        self.num_steps=3
         # Test configurations.
         self.test_iters = config.test_iters
 
@@ -80,8 +88,8 @@ class Solver(object):
 
         self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
         self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
-        self.print_network(self.G, 'G')
-        self.print_network(self.D, 'D')
+        # self.print_network(self.G, 'G')
+        # self.print_network(self.D, 'D')
             
         self.G.to(self.device)
         self.D.to(self.device)
@@ -131,10 +139,11 @@ class Solver(object):
         dydx = torch.autograd.grad(outputs=y,
                                    inputs=x,
                                    grad_outputs=weight,
-                                   retain_graph=True,
-                                   create_graph=True,
+                                   # retain_graph=True,
+                                   # create_graph=True,
                                    only_inputs=True)[0]
 
+        # dydx=torch.autograd.grad(outputs=y,inputs=x,create_graph=True)[0]
         dydx = dydx.view(dydx.size(0), -1)
         dydx_l2norm = torch.sqrt(torch.sum(dydx**2, dim=1))
         return torch.mean((dydx_l2norm-1)**2)
@@ -178,39 +187,242 @@ class Solver(object):
             return F.binary_cross_entropy_with_logits(logit, target, size_average=False) / logit.size(0)
         elif dataset == 'RaFD':
             return F.cross_entropy(logit, target)
+    
+    @staticmethod
+    def transform_op(crop_size,img_size):
+        transform = []
+
+        transform.append(T.ToPILImage())
+        transform.append(T.RandomHorizontalFlip())
+        transform.append(T.CenterCrop(crop_size))
+        transform.append(T.Resize(img_size))
+        transform.append(T.ToTensor())
+        transform.append(T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+        transform = T.Compose(transform)
+        return transform
 
     def train(self):
         """Train StarGAN within a single dataset."""
         # Set data loader.
-        if self.dataset == 'CelebA':
-            data_loader = self.celeba_loader
-        elif self.dataset == 'RaFD':
-            data_loader = self.rafd_loader
-
+        # if self.dataset == 'CelebA':
+        #     data_loader = self.celeba_loader
+        # elif self.dataset == 'RaFD':
+        #     data_loader = self.rafd_loader
+        
+        crop_size=178
+        ini_img_size=4
+        
         # Fetch fixed inputs for debugging.
-        data_iter = iter(data_loader)
-        x_fixed, c_org = next(data_iter)
-        x_fixed = x_fixed.to(self.device)
-        c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+        # data_iter = iter(data_loader)
+        # x_fixed, c_org = next(data_iter)
+        # x_fixed = x_fixed.to(self.device)
+        # c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+        # print(c_fixed_list)
 
         # Learning rate cache for decaying.
         g_lr = self.g_lr
         d_lr = self.d_lr
-
+        
+        one = torch.FloatTensor([1])
+        mone = one * -1
+        
+        
         # Start training from scratch or resume training.
-        start_iters = 0
-        if self.resume_iters:
-            start_iters = self.resume_iters
-            self.restore_model(self.resume_iters)
+        # start_iters = 0
+        # if self.resume_iters:
+        #     start_iters = self.resume_iters
+        #     self.restore_model(self.resume_iters)
 
         # Start training.
         print('Start training...')
         start_time = time.time()
+        
+        fade_in=False
+        for step in range(self.num_steps):
+            fade_in=(step!=0) and step>self.num_steps//2
+            
+            #Get data_loader based on step
+            if self.dataset=='CelebA':
+                data_loader=get_loader(self.celeba_args,step,self.batch_size)
+            elif self.dataset=='RaFD':
+                data_loader=get_loader(self.rafd_loader,step,self.batch_size)
+
+            # get fixed inputs of this step for debugging
+            data_iter = iter(data_loader)
+            x_fixed, c_org = next(data_iter)
+            x_fixed = x_fixed.to(self.device)
+            c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+            
+            for itr in range(self.num_iters):
+                alpha=-1 if not fade_in else min(1,0.00002*(itr))
+            
+                # =================================================================================== #
+                #                             1. Preprocess input data                                #
+                # =================================================================================== #
+
+                try:
+                    x_real, label_org = next(data_iter)
+                except:
+                    data_iter = iter(data_loader)
+                    x_real, label_org = next(data_iter)
+                rand_idx = torch.randperm(label_org.size(0))
+                label_trg = label_org[rand_idx]
+
+                if self.dataset == 'CelebA':
+                    c_org = label_org.clone()
+                    c_trg = label_trg.clone()
+                elif self.dataset == 'RaFD':
+                    c_org = self.label2onehot(label_org, self.c_dim)
+                    c_trg = self.label2onehot(label_trg, self.c_dim)
+
+                x_real = x_real.to(self.device)           # Input images.
+                c_org = c_org.to(self.device)             # Original domain labels.
+                c_trg = c_trg.to(self.device)             # Target domain labels.
+                label_org = label_org.to(self.device)     # Labels for computing classification loss.
+                label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
+    
+                # =================================================================================== #
+                #                             2. Train the discriminator                              #
+                # =================================================================================== #
+                # self.D.zero_grad()
+                # self.G.zero_grad()
+                requires_grad(self.G,False)
+                requires_grad(self.D,True)
+
+                # Compute loss with real images.
+                out_src, out_cls = self.D(x_real,step,alpha)
+                d_loss_real = torch.mean(out_src) - 0.001*(out_src**2).mean() #ProgressiveGAN loss
+                # d_loss_real.backward(mone,retain_graph=True)
+                
+                #Classification loss
+                d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
+                # d_loss_cls=self.lambda_cls*d_loss_cls
+                # d_loss_cls.backward(one)
+
+                # Compute loss with fake images.
+                x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
+                print("Fake image:", x_fake.size())
+                out_src, out_cls = self.D(x_fake.detach(),step,alpha) #take in step as argument
+                d_loss_fake = torch.mean(out_src)
+                # d_loss_fake.backward(one)
+
+                # Compute loss for gradient penalty.
+                eps = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
+                x_hat = (eps * x_real.data + (1 - eps) * x_fake.data)
+                x_hat = Variable(x_hat,requires_grad=True)
+                out_src, _ = self.D(x_hat,step,alpha) #Take in step as argument
+                d_loss_gp = self.gradient_penalty(out_src.sum(), x_hat)
+                # d_loss_gp=self.lambda_gp*d_loss_gp
+                # d_loss_gp.backward(one)
+                
+                # Backward and optimize.
+                d_loss = -d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
+                
+                self.reset_grad()
+                d_loss.backward()
+                self.d_optimizer.step()
+
+                # Logging.
+                loss = {}
+                loss['D/loss_real'] = d_loss_real.item()
+                loss['D/loss_fake'] = d_loss_fake.item()
+                loss['D/loss_cls'] = d_loss_cls.item()
+                loss['D/loss_gp'] = d_loss_gp.item()
+
+                # =================================================================================== #
+                #                               3. Train the generator                                #
+                # =================================================================================== #
+                
+                if (itr+1) % self.n_critic == 0:
+                    requires_grad(self.G,True)
+                    requires_grad(self.D,False)
+
+                    # Original-to-target domain.
+                    x_fake = self.G(x_real, c_trg,step,alpha) #take step as argument
+                    out_src, out_cls = self.D(x_fake,step,alpha) #take step as argument
+                    g_loss_fake = - torch.mean(out_src)
+
+                    #Classification loss
+                    g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
+
+                    # Target-to-original domain.
+                    x_reconst = self.G(x_fake, c_org,step,alpha) #take step as argument
+                    g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
+
+                    # Backward and optimize.
+                    g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
+                    self.reset_grad()
+                    g_loss.backward()
+                    self.g_optimizer.step()
+
+                    # Logging.
+                    loss['G/loss_fake'] = g_loss_fake.item()
+                    loss['G/loss_rec'] = g_loss_rec.item()
+                    loss['G/loss_cls'] = g_loss_cls.item()
+
+                # =================================================================================== #
+                #                                 4. Miscellaneous                                    #
+                # =================================================================================== #
+
+                # Print out training information.
+                if (itr+1) % self.log_step == 0:
+                    et = time.time() - start_time
+                    et = str(datetime.timedelta(seconds=et))[:-7]
+                    log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
+                    for tag, value in loss.items():
+                        log += ", {}: {:.4f}".format(tag, value)
+                    print(log)
+
+                    if self.use_tensorboard:
+                        for tag, value in loss.items():
+                            self.logger.scalar_summary(tag, value, i+1)
+
+                # Translate fixed images for debugging.
+                if (itr+1) % self.sample_step == 0:
+                    with torch.no_grad():
+                        x_fake_list = [x_fixed]
+                        for c_fixed in c_fixed_list:
+                            x_fake_list.append(self.G(x_fixed, c_fixed,step,alpha))
+                        x_concat = torch.cat(x_fake_list, dim=3)
+                        sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(i+1))
+                        save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
+                        print('Saved real and fake images into {}...'.format(sample_path))
+
+                # Save model checkpoints.
+                if (itr+1) % self.model_save_step == 0:
+                    G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(i+1))
+                    D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(i+1))
+                    torch.save(self.G.state_dict(), G_path)
+                    torch.save(self.D.state_dict(), D_path)
+                    print('Saved model checkpoints into {}...'.format(self.model_save_dir))
+
+                # Decay learning rates. #Change this !
+                if (itr+1) % self.lr_update_step == 0 and (itr+1) > (self.num_iters - self.num_iters_decay):
+                    g_lr -= (self.g_lr / float(self.num_iters_decay))
+                    d_lr -= (self.d_lr / float(self.num_iters_decay))
+                    self.update_lr(g_lr, d_lr)
+                    print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
+
+
+        """
         for i in range(start_iters, self.num_iters):
 
             # =================================================================================== #
             #                             1. Preprocess input data                                #
             # =================================================================================== #
+
+            itr+=1
+            #Condition for incrementing step value
+            alpha=min(1,0.00002*(itr-50000)) if stabilize else -1
+            #Train for 50k itrs with AxA and thereafter for 50k itrs with 2Ax2A with alpha
+            if stabilize is False and itr>50000:
+                stabilize=True
+                step+=1 #Image size=2^(step+2)
+                transform=transform_op(crop_size,2**(step+2))
+
+            if itr>100000:
+                stabilize=False
+                itr=0
 
             # Fetch real images and labels.
             try:
@@ -218,6 +430,9 @@ class Solver(object):
             except:
                 data_iter = iter(data_loader)
                 x_real, label_org = next(data_iter)
+            print("Img size:",x_real.size())
+            #Resize image according to step
+            # x_real=torch.from_numpy(pop)
 
             # Generate target domain labels randomly.
             rand_idx = torch.randperm(label_org.size(0))
@@ -241,19 +456,20 @@ class Solver(object):
             # =================================================================================== #
 
             # Compute loss with real images.
-            out_src, out_cls = self.D(x_real)
+            out_src, out_cls = self.D(x_real,step,alpha) #take in step as argument
+            print("D crossed")
             d_loss_real = - torch.mean(out_src)
             d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
 
             # Compute loss with fake images.
-            x_fake = self.G(x_real, c_trg)
-            out_src, out_cls = self.D(x_fake.detach())
+            x_fake = self.G(x_real, c_trg) #take in step as argument
+            out_src, out_cls = self.D(x_fake.detach()) #take in step as argument
             d_loss_fake = torch.mean(out_src)
 
             # Compute loss for gradient penalty.
             alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
             x_hat = (alpha * x_real.data + (1 - alpha) * x_fake.data).requires_grad_(True)
-            out_src, _ = self.D(x_hat)
+            out_src, _ = self.D(x_hat) #Take in step as argument
             d_loss_gp = self.gradient_penalty(out_src, x_hat)
 
             # Backward and optimize.
@@ -275,13 +491,13 @@ class Solver(object):
             
             if (i+1) % self.n_critic == 0:
                 # Original-to-target domain.
-                x_fake = self.G(x_real, c_trg)
-                out_src, out_cls = self.D(x_fake)
+                x_fake = self.G(x_real, c_trg) #take step as argument
+                out_src, out_cls = self.D(x_fake) #take step as argument
                 g_loss_fake = - torch.mean(out_src)
                 g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
 
                 # Target-to-original domain.
-                x_reconst = self.G(x_fake, c_org)
+                x_reconst = self.G(x_fake, c_org) #take step as argument
                 g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
 
                 # Backward and optimize.
@@ -331,12 +547,13 @@ class Solver(object):
                 torch.save(self.D.state_dict(), D_path)
                 print('Saved model checkpoints into {}...'.format(self.model_save_dir))
 
-            # Decay learning rates.
+            # Decay learning rates. #Change this !
             if (i+1) % self.lr_update_step == 0 and (i+1) > (self.num_iters - self.num_iters_decay):
                 g_lr -= (self.g_lr / float(self.num_iters_decay))
                 d_lr -= (self.d_lr / float(self.num_iters_decay))
                 self.update_lr(g_lr, d_lr)
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
+            """
 
     def train_multi(self):
         """Train StarGAN with multiple datasets."""        
