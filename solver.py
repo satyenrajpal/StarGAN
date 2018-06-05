@@ -58,7 +58,9 @@ class Solver(object):
 
         # Miscellaneous.
         self.use_tensorboard = config.use_tensorboard
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        # self.cuda = torch.cuda.is_available()
+        print("Using Cuda")
 
         # Directories.
         self.log_dir = config.log_dir
@@ -90,7 +92,6 @@ class Solver(object):
         self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
         # self.print_network(self.G, 'G')
         # self.print_network(self.D, 'D')
-            
         self.G.to(self.device)
         self.D.to(self.device)
 
@@ -136,6 +137,8 @@ class Solver(object):
     def gradient_penalty(self, y, x):
         """Compute gradient penalty: (L2_norm(dy/dx) - 1)**2."""
         weight = torch.ones(y.size()).to(self.device)
+        # if self.cuda:
+        #     weight.cuda()
         dydx = torch.autograd.grad(outputs=y,
                                    inputs=x,
                                    grad_outputs=weight,
