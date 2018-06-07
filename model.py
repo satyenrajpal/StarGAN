@@ -57,8 +57,8 @@ class Generator(nn.Module):
         # layers.append(nn.ReLU(inplace=True))
 
         # Down-sampling layers.
-        self.down_sampling=nn.ModuleList([ConvBlock(128,256), #128x64x64 -> 256X32x32
-                                         ConvBlock(64,128)]) #64x128x128 -> 128x64x64
+        self.down_sampling=nn.ModuleList([ConvBlock(64,128),    #64x128x128 -> 128x64x64
+                                          ConvBlock(128,256)])  #128x64x64 -> 256x32x32
 
         # curr_dim = conv_dim
         # for i in range(2):
@@ -101,12 +101,12 @@ class Generator(nn.Module):
         x = torch.cat([x, c], dim=1)
         x=self.from_rgb[step](x) #convert (3+5)xAxA -> FMapxAxA
         for i,down in enumerate(self.down_sampling):
-            if i<step:
+            if i>len(self.down_sampling)-1-step:
                 x=down(x)
         
         out=self.bottleneck(x)
         prev_layer=out
-        
+
         for i, up in enumerate(self.up_sampling):
             if i<step:
                 out=up(out)
@@ -174,7 +174,6 @@ class Discriminator(nn.Module):
                 skip_rgb=self.from_rgb[step-1](skip_rgb)
                 assert skip_rgb.size() == h.size()
                 h=(1-alpha)*skip_rgb+alpha*h
-                print("fade-in in Discriminator")
         
         assert h.size()[2]==32
         out=self.down_sample(h)
