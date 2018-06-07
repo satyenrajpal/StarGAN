@@ -99,13 +99,14 @@ class Generator(nn.Module):
         c = c.view(c.size(0), c.size(1), 1, 1)
         c = c.repeat(1, 1, x.size(2), x.size(3))
         x = torch.cat([x, c], dim=1)
-        x=self.from_rgb[step](x) #convert 3xAxA -> FMapxAxA
+        x=self.from_rgb[step](x) #convert (3+5)xAxA -> FMapxAxA
         for i,down in enumerate(self.down_sampling):
             if i<step:
                 x=down(x)
         
         out=self.bottleneck(x)
-
+        prev_layer=out
+        
         for i, up in enumerate(self.up_sampling):
             if i<step:
                 out=up(out)
@@ -164,8 +165,7 @@ class Discriminator(nn.Module):
     def forward(self, x,step=0,alpha=-1):
         # h = self.main(x)
         h=self.from_rgb[step](x)
-        if step>0:
-            print("Size of h is ",h.size())
+
         for i in range(step, 0, -1):
             h=self.progressive[i-1](h)
             
