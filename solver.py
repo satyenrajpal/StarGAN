@@ -304,7 +304,7 @@ class Solver(object):
 
                 # Compute loss with fake images.
                 x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
-                print("Fake image:", x_fake.size())
+                # print("Fake image:", x_fake.size())
                 out_src, out_cls = self.D(x_fake.detach(),step,alpha) #take in step as argument
                 d_loss_fake = torch.mean(out_src)
                 # d_loss_fake.backward(one)
