@@ -111,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--result_dir', type=str, default='stargan/results')
 
     # Step size.
-    parser.add_argument('--log_step', type=int, default=10)
+    parser.add_argument('--log_step', type=int, default=100)
     parser.add_argument('--sample_step', type=int, default=1000)
     parser.add_argument('--model_save_step', type=int, default=10000)
     parser.add_argument('--lr_update_step', type=int, default=1000)
