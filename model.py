@@ -164,9 +164,10 @@ class Discriminator(nn.Module):
     def forward(self, x,step=0,alpha=-1):
         # h = self.main(x)
         h=self.from_rgb[step](x)
-        
+        if step>0:
+            print("Size of h is ",h.size())
         for i in range(step, 0, -1):
-            h=self.progressive[step-1](h)
+            h=self.progressive[i-1](h)
             
             if i==step and 0<=alpha<1:
                 skip_rgb=F.avg_pool2d(x,2)
