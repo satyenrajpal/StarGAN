@@ -52,7 +52,7 @@ class Solver(object):
         self.beta2 = config.beta2
         self.resume_iters = config.resume_iters
         self.selected_attrs = config.selected_attrs
-        self.num_steps=3
+        self.num_steps=2
         # Test configurations.
         self.test_iters = config.test_iters
 
@@ -241,7 +241,7 @@ class Solver(object):
         start_time = time.time()
         
         fade_in=False
-        for step in range(self.num_steps):
+        for step in range(self.num_steps+1):
             
             #Get data_loader based on step
             if self.dataset=='CelebA':
@@ -307,7 +307,7 @@ class Solver(object):
                 d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
                 # d_loss_cls=self.lambda_cls*d_loss_cls
                 # d_loss_cls.backward(one)
-                
+
                 # Compute loss with fake images.
                 x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
                 # print("Fake image:", x_fake.size())
@@ -377,7 +377,7 @@ class Solver(object):
                 if (itr+1) % self.log_step == 0:
                     et = time.time() - start_time
                     et = str(datetime.timedelta(seconds=et))[:-7]
-                    log = "Elapsed [{}], Iteration [{}/{}]".format(et, itr+1, self.num_iters)
+                    log = "Elapsed [{}], Iteration [{}/{}], Step {}".format(et, itr+1, self.num_iters,step)
                     for tag, value in loss.items():
                         log += ", {}: {:.4f}".format(tag, value)
                     print(log)
