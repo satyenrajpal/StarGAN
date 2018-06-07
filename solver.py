@@ -371,14 +371,14 @@ class Solver(object):
                 if (itr+1) % self.log_step == 0:
                     et = time.time() - start_time
                     et = str(datetime.timedelta(seconds=et))[:-7]
-                    log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
+                    log = "Elapsed [{}], Iteration [{}/{}]".format(et, itr+1, self.num_iters)
                     for tag, value in loss.items():
                         log += ", {}: {:.4f}".format(tag, value)
                     print(log)
 
                     if self.use_tensorboard:
                         for tag, value in loss.items():
-                            self.logger.scalar_summary(tag, value, i+1)
+                            self.logger.scalar_summary(tag, value, itr+1)
 
                 # Translate fixed images for debugging.
                 if (itr+1) % self.sample_step == 0:
@@ -387,14 +387,14 @@ class Solver(object):
                         for c_fixed in c_fixed_list:
                             x_fake_list.append(self.G(x_fixed, c_fixed,step,alpha))
                         x_concat = torch.cat(x_fake_list, dim=3)
-                        sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(i+1))
+                        sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(itr+1))
                         save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
                         print('Saved real and fake images into {}...'.format(sample_path))
 
                 # Save model checkpoints.
                 if (itr+1) % self.model_save_step == 0:
-                    G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(i+1))
-                    D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(i+1))
+                    G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(itr+1))
+                    D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(itr+1))
                     torch.save(self.G.state_dict(), G_path)
                     torch.save(self.D.state_dict(), D_path)
                     print('Saved model checkpoints into {}...'.format(self.model_save_dir))
