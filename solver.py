@@ -256,11 +256,13 @@ class Solver(object):
             c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
             
             for itr in range(self.num_iters):
-	            #Corner condition for step==0
-            	if step==0 and itr>self.num_iters//2:
-            		break
-            	# Fade_in only for half the steps when moving on to the next step
-            	fade_in=(step!=0) and itr<self.num_steps//2
+                #Corner condition for step==0
+                if step==0 and itr>self.num_iters//2:
+                    break
+
+                # Fade_in only for half the steps when moving on to the next step
+                fade_in=(step!=0) and itr<self.num_steps//2
+                #weight for fading in
                 alpha=-1 if not fade_in else min(1,0.00002*(itr))
             
                 # =================================================================================== #
