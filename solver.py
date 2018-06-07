@@ -307,7 +307,7 @@ class Solver(object):
                 d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
                 # d_loss_cls=self.lambda_cls*d_loss_cls
                 # d_loss_cls.backward(one)
-
+                
                 # Compute loss with fake images.
                 x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
                 # print("Fake image:", x_fake.size())
