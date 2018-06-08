@@ -393,14 +393,14 @@ class Solver(object):
                         for c_fixed in c_fixed_list:
                             x_fake_list.append(self.G(x_fixed, c_fixed,step,alpha))
                         x_concat = torch.cat(x_fake_list, dim=3)
-                        sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(itr+1))
+                        sample_path = os.path.join(self.sample_dir, '{}-{}-images.jpg'.format(step,itr+1))
                         save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
                         print('Saved real and fake images into {}...'.format(sample_path))
 
                 # Save model checkpoints.
                 if (itr+1) % self.model_save_step == 0:
-                    G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(itr+1))
-                    D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(itr+1))
+                    G_path = os.path.join(self.model_save_dir, '{}-{}-G.ckpt'.format(step,itr+1))
+                    D_path = os.path.join(self.model_save_dir, '{}-{}-D.ckpt'.format(step,itr+1))
                     torch.save(self.G.state_dict(), G_path)
                     torch.save(self.D.state_dict(), D_path)
                     print('Saved model checkpoints into {}...'.format(self.model_save_dir))
