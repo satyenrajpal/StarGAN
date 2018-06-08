@@ -300,7 +300,8 @@ class Solver(object):
 
                 # Compute loss with real images.
                 out_src, out_cls = self.D(x_real,step,alpha)
-                d_loss_real = torch.mean(out_src) - 0.001*(out_src**2).mean() #ProgressiveGAN loss
+                # d_loss_real = torch.mean(out_src) - 0.001*(out_src**2).mean() #ProgressiveGAN loss
+                d_loss_real = -torch.mean(out_src)
                 # d_loss_real.backward(mone,retain_graph=True)
                 
                 #Classification loss
@@ -325,7 +326,7 @@ class Solver(object):
                 # d_loss_gp.backward(one)
                 
                 # Backward and optimize.
-                d_loss = -d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
+                d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
                 
                 self.reset_grad()
                 d_loss.backward()
@@ -406,11 +407,11 @@ class Solver(object):
                     print('Saved model checkpoints into {}...'.format(self.model_save_dir))
 
                 # Decay learning rates. #Change this !
-                if (itr+1) % self.lr_update_step == 0 and (itr+1) > (self.num_iters - self.num_iters_decay):
-                    g_lr -= (self.g_lr / float(self.num_iters_decay))
-                    d_lr -= (self.d_lr / float(self.num_iters_decay))
-                    self.update_lr(g_lr, d_lr)
-                    print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
+                # if (itr+1) % self.lr_update_step == 0 and (itr+1) > (self.num_iters - self.num_iters_decay):
+                #     g_lr -= (self.g_lr / float(self.num_iters_decay))
+                #     d_lr -= (self.d_lr / float(self.num_iters_decay))
+                #     self.update_lr(g_lr, d_lr)
+                #     print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
 
         """

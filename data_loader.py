@@ -90,5 +90,6 @@ def get_loader(dict_,step=0,batch_size=16):
 
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
-                                  shuffle=(dict_['mode']=='train'))
+                                  shuffle=(dict_['mode']=='train'),
+                                  num_workers=dict_['num_workers'])
     return data_loader
