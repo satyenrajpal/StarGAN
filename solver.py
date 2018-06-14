@@ -12,8 +12,6 @@ from torchvision import transforms as T
 from data_loader import get_loader
 import sys
 
-
-
 def requires_grad(model, flag=True):
     for p in model.parameters():
         p.requires_grad = flag
@@ -747,6 +745,8 @@ class Solver(object):
                 self.update_lr(g_lr, d_lr)
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
+    
+
     def test(self):
         """Translate images using StarGAN trained on a single dataset."""
         # Load the trained generator.
@@ -775,6 +775,14 @@ class Solver(object):
                 result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
+
+    def interpolation(self,src_imgs,trgt_imgs,num=10):
+    	""" Generate 'num' interpolated images b/w src and target"""
+
+    	# Loop over src and trgt 'num' of times
+    		# make sure all attribute changes per image are included
+    		# pass through Discriminator as a batch!
+    		# save images
 
     def test_multi(self):
         """Translate images using StarGAN trained on multiple datasets."""
