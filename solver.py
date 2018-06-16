@@ -204,29 +204,13 @@ class Solver(object):
 
     def train(self):
         """Train StarGAN within a single dataset."""
-        # Set data loader.
-        # if self.dataset == 'CelebA':
-        #     data_loader = self.celeba_loader
-        # elif self.dataset == 'RaFD':
-        #     data_loader = self.rafd_loader
         
         crop_size=178
         ini_img_size=4
         
-        # Fetch fixed inputs for debugging.
-        # data_iter = iter(data_loader)
-        # x_fixed, c_org = next(data_iter)
-        # x_fixed = x_fixed.to(self.device)
-        # c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
-        # print(c_fixed_list)
-
         # Learning rate cache for decaying.
         g_lr = self.g_lr
         d_lr = self.d_lr
-        
-        one = torch.FloatTensor([1])
-        mone = one * -1
-        
         
         # Start training from scratch or resume training.
         # start_iters = 0
@@ -234,7 +218,6 @@ class Solver(object):
         #     start_iters = self.resume_iters
         #     self.restore_model(self.resume_iters)
 
-        # Start training.
         print('Start training...')
         start_time = time.time()
         
@@ -249,15 +232,22 @@ class Solver(object):
 
             # get fixed inputs of this step for debugging
             data_iter = iter(data_loader)
-            x_fixed, c_org = next(data_iter)
+            x_fixed, c_org_fixed = next(data_iter)
             x_fixed = x_fixed.to(self.device)
-            c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
-            
-            for itr in range(self.num_iters):
-                #Corner condition for step==0
-                if step==0 and itr>self.num_iters//2:
-                    break
+            c_fixed_list = self.create_labels(c_org_fixed, self.c_dim, self.dataset, self.selected_attrs)
+            c_org_fixed=c_org_fixed.to(self.device)
+            print(c_org_fixed)
 
+            #Conditions for different steps
+            if step==0:
+            	step_iters=self.num_iters//2
+            elif step==self.num_steps:
+            	step_iters=self.num_iters*2
+            else:
+            	step_iters=self.num_iters
+            
+            for itr in range(step_iters):
+            
                 # Fade_in only for half the steps when moving on to the next step
                 fade_in=(step!=0) and itr<self.num_steps//2
                 #weight for fading in
@@ -298,30 +288,23 @@ class Solver(object):
 
                 # Compute loss with real images.
                 out_src, out_cls = self.D(x_real,step,alpha)
-                # d_loss_real = torch.mean(out_src) - 0.001*(out_src**2).mean() #ProgressiveGAN loss
                 d_loss_real = -torch.mean(out_src)
-                # d_loss_real.backward(mone,retain_graph=True)
                 
                 #Classification loss
                 d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
-                # d_loss_cls=self.lambda_cls*d_loss_cls
-                # d_loss_cls.backward(one)
-
+                
                 # Compute loss with fake images.
-                x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
+                x_fake,_ = self.G(x_real, c_trg,step,alpha) #take in step as argument
                 # print("Fake image:", x_fake.size())
                 out_src, out_cls = self.D(x_fake.detach(),step,alpha) #take in step as argument
                 d_loss_fake = torch.mean(out_src)
-                # d_loss_fake.backward(one)
-
+                
                 # Compute loss for gradient penalty.
                 eps = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
                 x_hat = (eps * x_real.data + (1 - eps) * x_fake.data)
                 x_hat = Variable(x_hat,requires_grad=True)
                 out_src, _ = self.D(x_hat,step,alpha) #Take in step as argument
                 d_loss_gp = self.gradient_penalty(out_src.sum(), x_hat)
-                # d_loss_gp=self.lambda_gp*d_loss_gp
-                # d_loss_gp.backward(one)
                 
                 # Backward and optimize.
                 d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
@@ -346,15 +329,15 @@ class Solver(object):
                     requires_grad(self.D,False)
 
                     # Original-to-target domain.
-                    x_fake = self.G(x_real, c_trg,step,alpha) #take step as argument
-                    out_src, out_cls = self.D(x_fake,step,alpha) #take step as argument
+                    x_fake,_ = self.G(x_real, c_trg,step,alpha) 
+                    out_src, out_cls = self.D(x_fake,step,alpha) 
                     g_loss_fake = - torch.mean(out_src)
 
                     #Classification loss
                     g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
 
                     # Target-to-original domain.
-                    x_reconst = self.G(x_fake, c_org,step,alpha) #take step as argument
+                    x_reconst,_ = self.G(x_fake, c_org,step,alpha) 
                     g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
 
                     # Backward and optimize.
@@ -376,7 +359,7 @@ class Solver(object):
                 if (itr+1) % self.log_step == 0:
                     et = time.time() - start_time
                     et = str(datetime.timedelta(seconds=et))[:-7]
-                    log = "Elapsed [{}], Iteration [{}/{}], Step {}".format(et, itr+1, self.num_iters,step)
+                    log = "Elapsed [{}], Iteration [{}/{}], Step {}".format(et, itr+1, step_iters,step)
                     for tag, value in loss.items():
                         log += ", {}: {:.4f}".format(tag, value)
                     print(log)
@@ -767,22 +750,32 @@ class Solver(object):
 
                 # Translate images.
                 x_fake_list = [x_real]
+                _,org_embedding=self.G(x_real,c_org)
+                
                 for c_trg in c_trg_list:
                     x_fake_list.append(self.G(x_real, c_trg))
-
+                print(np.array(x_fake_list).shape)
                 # Save the translated images.
                 x_concat = torch.cat(x_fake_list, dim=3)
                 result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
 
-    def interpolation(self,src_imgs,trgt_imgs,num=10):
-    	""" Generate 'num' interpolated images b/w src and target"""
+    # def interpolation(self,src_latent,trgt_latent,step,num=10):
+    # 	""" Generate 'num' interpolated images b/w src and target"""
+    # 	all_imgs=[]
+    # 	for i in range(num+1):
+    # 		curr_latent=src_latent+i*(trgt_latent-src_latent)/num
+    # 		with torch.no_grad():
+    # 			#Return latent? TODO: Include this in self.G
+    # 			all_imgs.append(self.G(curr_latent,step))
+    # 	#Rearrange all imgs 
+    # 	#save_image()
+    # 	# Loop over src and trgt 'num' of times
+    # 		# make sure all attribute changes per image are included
+    # 		# pass through Discriminator as a batch!
+    # 		# save images
 
-    	# Loop over src and trgt 'num' of times
-    		# make sure all attribute changes per image are included
-    		# pass through Discriminator as a batch!
-    		# save images
 
     def test_multi(self):
         """Translate images using StarGAN trained on multiple datasets."""

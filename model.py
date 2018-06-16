@@ -94,37 +94,46 @@ class Generator(nn.Module):
 
         # self.main = nn.Sequential(*layers)
 
-    def forward(self, x, c,step=0,alpha=-1):
+    def forward(self, x, c=None,step=0,alpha=-1,partial=False):
+        #Pass input through entire generator
+        if not partial:
         # Replicate spatially and concatenate domain information.
-        c = c.view(c.size(0), c.size(1), 1, 1)
-        c = c.repeat(1, 1, x.size(2), x.size(3))
-        x = torch.cat([x, c], dim=1)
-        x=self.from_rgb[step](x) #convert (3+5)xAxA -> FMapxAxA
-        for i,down in enumerate(self.down_sampling):
-            if i>len(self.down_sampling)-1-step:
-                x=down(x)
+            c = c.view(c.size(0), c.size(1), 1, 1)
+            c = c.repeat(1, 1, x.size(2), x.size(3))
+            x = torch.cat([x, c], dim=1)
+            x=self.from_rgb[step](x) #convert (3+5)xAxA -> FMapxAxA
+            for i,down in enumerate(self.down_sampling):
+                if i>len(self.down_sampling)-1-step:
+                    x=down(x)
         
-        out=self.bottleneck(x)
-        prev_layer=out
+            out=self.bottleneck(x)
+            prev_layer=out
+            btlneck_out=out.clone()
 
-        for i, up in enumerate(self.up_sampling):
-            if i<step:
-                out=up(out)
-            #collect (upsample-1) for fade-in
-            if step>0 and i==step-2:
-                prev_layer=out
+            for i, up in enumerate(self.up_sampling):
+                if i<step:
+                    out=up(out)
+                #collect (upsample-1) for fade-in
+                if step>0 and i==step-2:
+                    prev_layer=out
 
-        out=self.to_rgb[step](out)
+            out=self.to_rgb[step](out)
 
-        if step>0 and 0<=alpha<1:
-            skip_rgb=self.to_rgb[step-1](prev_layer)
-            skip_rgb=F.upsample(skip_rgb,scale_factor=2)
-            out=(1-alpha)*skip_rgb + alpha*out
+            if step>0 and 0<=alpha<1:
+                skip_rgb=self.to_rgb[step-1](prev_layer)
+                skip_rgb=F.upsample(skip_rgb,scale_factor=2)
+                out=(1-alpha)*skip_rgb + alpha*out
 
-        return out
+            return out,btlneck_out
+        else:
+            #input 'x' is embedding and is passed only through the upsampling layers
+            out=x
+            for i, up in enumerate(self.up_sampling):
+                if i<step:
+                    out=up(out)
+            out=self.to_rgb[step](out)
 
-        # return self.main(x)
-
+            return out
 
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
