@@ -58,7 +58,8 @@ class Solver(object):
         self.use_tensorboard = config.use_tensorboard
         self.device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
         # self.cuda = torch.cuda.is_available()
-        print("Using Cuda")
+        if torch.cuda.is_available():
+            print("Using Cuda")
 
         # Directories.
         self.log_dir = config.log_dir
@@ -240,11 +241,11 @@ class Solver(object):
 
             #Conditions for different steps
             if step==0:
-            	step_iters=self.num_iters//2
+                step_iters=self.num_iters//2
             elif step==self.num_steps:
-            	step_iters=self.num_iters*2
+                step_iters=self.num_iters*2
             else:
-            	step_iters=self.num_iters
+                step_iters=self.num_iters
             
             for itr in range(step_iters):
             
@@ -729,17 +730,21 @@ class Solver(object):
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
     
-
     def test(self):
         """Translate images using StarGAN trained on a single dataset."""
         # Load the trained generator.
         self.restore_model(self.test_iters)
         
         # Set data loader.
-        if self.dataset == 'CelebA':
-            data_loader = self.celeba_loader
-        elif self.dataset == 'RaFD':
-            data_loader = self.rafd_loader
+        if self.dataset=='CelebA':
+            data_loader=get_loader(self.celeba_args,self.num_steps,self.batch_size)
+        elif self.dataset=='RaFD':
+            data_loader=get_loader(self.rafd_loader,self.num_steps,self.batch_size)
+
+        # if self.dataset == 'CelebA':
+        #     data_loader = self.celeba_loader
+        # elif self.dataset == 'RaFD':
+        #     data_loader = self.rafd_loader
         
         with torch.no_grad():
             for i, (x_real, c_org) in enumerate(data_loader):
@@ -750,31 +755,42 @@ class Solver(object):
 
                 # Translate images.
                 x_fake_list = [x_real]
-                _,org_embedding=self.G(x_real,c_org)
+                x_gen,org_embedding=self.G(x_real,c_org,step=self.num_steps)
+                result_path = os.path.join(self.result_dir, '{}-image0.jpg'.format(i+1))
+                save_image(self.denorm(x_gen.cpu()), result_path, nrow=1, padding=0)
                 
                 for c_trg in c_trg_list:
-                    x_fake_list.append(self.G(x_real, c_trg))
-                print(np.array(x_fake_list).shape)
+                    x_trgt,trgt_embedding=self.G(x_real, c_trg,step=self.num_steps)
+                    self.interpolation(org_embedding,trgt_embedding,self.num_steps)
+                    x_fake_list.append(x_trgt)
+                
                 # Save the translated images.
                 x_concat = torch.cat(x_fake_list, dim=3)
                 result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
+                sys.exit()
                 print('Saved real and fake images into {}...'.format(result_path))
 
-    # def interpolation(self,src_latent,trgt_latent,step,num=10):
-    # 	""" Generate 'num' interpolated images b/w src and target"""
-    # 	all_imgs=[]
-    # 	for i in range(num+1):
-    # 		curr_latent=src_latent+i*(trgt_latent-src_latent)/num
-    # 		with torch.no_grad():
-    # 			#Return latent? TODO: Include this in self.G
-    # 			all_imgs.append(self.G(curr_latent,step))
-    # 	#Rearrange all imgs 
-    # 	#save_image()
-    # 	# Loop over src and trgt 'num' of times
-    # 		# make sure all attribute changes per image are included
-    # 		# pass through Discriminator as a batch!
-    # 		# save images
+    def interpolation(self,src_latent,trgt_latent,step,num=3):
+        """ Generate 'num' interpolated images b/w src and target"""
+        all_imgs=[]
+        for i in range(num+1):
+            curr_latent=src_latent+i*(trgt_latent-src_latent)/num
+            with torch.no_grad():
+                fake_img=self.G(curr_latent,step=self.num_steps,partial=True)
+                all_imgs.append(fake_img)
+        x_concat = torch.cat(all_imgs, dim=3)
+        print("all images",x_concat.size())
+        intep_path=os.path.join(os.getcwd(),'{}-interp.jpg'.format(2))
+        save_image(self.denorm(x_concat.data.cpu()),intep_path,nrow=1,padding=0)
+        
+
+      #Rearrange all imgs 
+      #save_image()
+      # Loop over src and trgt 'num' of times
+    #       # make sure all attribute changes per image are included
+    #       # pass through Discriminator as a batch!
+    #       # save images
 
 
     def test_multi(self):
