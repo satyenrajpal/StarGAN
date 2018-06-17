@@ -8,7 +8,7 @@ import numpy as np
 import os
 import time
 import datetime
-
+import sys
 
 class Solver(object):
     """Solver for training and testing StarGAN."""
@@ -548,6 +548,7 @@ class Solver(object):
                 result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
+                sys.exit()
 
     def test_multi(self):
         """Translate images using StarGAN trained on multiple datasets."""
