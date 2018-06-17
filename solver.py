@@ -395,158 +395,7 @@ class Solver(object):
                 #     self.update_lr(g_lr, d_lr)
                 #     print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
-
-        """
-        for i in range(start_iters, self.num_iters):
-
-            # =================================================================================== #
-            #                             1. Preprocess input data                                #
-            # =================================================================================== #
-
-            itr+=1
-            #Condition for incrementing step value
-            alpha=min(1,0.00002*(itr-50000)) if stabilize else -1
-            #Train for 50k itrs with AxA and thereafter for 50k itrs with 2Ax2A with alpha
-            if stabilize is False and itr>50000:
-                stabilize=True
-                step+=1 #Image size=2^(step+2)
-                transform=transform_op(crop_size,2**(step+2))
-
-            if itr>100000:
-                stabilize=False
-                itr=0
-
-            # Fetch real images and labels.
-            try:
-                x_real, label_org = next(data_iter)
-            except:
-                data_iter = iter(data_loader)
-                x_real, label_org = next(data_iter)
-            print("Img size:",x_real.size())
-            #Resize image according to step
-            # x_real=torch.from_numpy(pop)
-
-            # Generate target domain labels randomly.
-            rand_idx = torch.randperm(label_org.size(0))
-            label_trg = label_org[rand_idx]
-
-            if self.dataset == 'CelebA':
-                c_org = label_org.clone()
-                c_trg = label_trg.clone()
-            elif self.dataset == 'RaFD':
-                c_org = self.label2onehot(label_org, self.c_dim)
-                c_trg = self.label2onehot(label_trg, self.c_dim)
-
-            x_real = x_real.to(self.device)           # Input images.
-            c_org = c_org.to(self.device)             # Original domain labels.
-            c_trg = c_trg.to(self.device)             # Target domain labels.
-            label_org = label_org.to(self.device)     # Labels for computing classification loss.
-            label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
-
-            # =================================================================================== #
-            #                             2. Train the discriminator                              #
-            # =================================================================================== #
-
-            # Compute loss with real images.
-            out_src, out_cls = self.D(x_real,step,alpha) #take in step as argument
-            print("D crossed")
-            d_loss_real = - torch.mean(out_src)
-            d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
-
-            # Compute loss with fake images.
-            x_fake = self.G(x_real, c_trg) #take in step as argument
-            out_src, out_cls = self.D(x_fake.detach()) #take in step as argument
-            d_loss_fake = torch.mean(out_src)
-
-            # Compute loss for gradient penalty.
-            alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
-            x_hat = (alpha * x_real.data + (1 - alpha) * x_fake.data).requires_grad_(True)
-            out_src, _ = self.D(x_hat) #Take in step as argument
-            d_loss_gp = self.gradient_penalty(out_src, x_hat)
-
-            # Backward and optimize.
-            d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-            self.reset_grad()
-            d_loss.backward()
-            self.d_optimizer.step()
-
-            # Logging.
-            loss = {}
-            loss['D/loss_real'] = d_loss_real.item()
-            loss['D/loss_fake'] = d_loss_fake.item()
-            loss['D/loss_cls'] = d_loss_cls.item()
-            loss['D/loss_gp'] = d_loss_gp.item()
-            
-            # =================================================================================== #
-            #                               3. Train the generator                                #
-            # =================================================================================== #
-            
-            if (i+1) % self.n_critic == 0:
-                # Original-to-target domain.
-                x_fake = self.G(x_real, c_trg) #take step as argument
-                out_src, out_cls = self.D(x_fake) #take step as argument
-                g_loss_fake = - torch.mean(out_src)
-                g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
-
-                # Target-to-original domain.
-                x_reconst = self.G(x_fake, c_org) #take step as argument
-                g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
-
-                # Backward and optimize.
-                g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
-                self.reset_grad()
-                g_loss.backward()
-                self.g_optimizer.step()
-
-                # Logging.
-                loss['G/loss_fake'] = g_loss_fake.item()
-                loss['G/loss_rec'] = g_loss_rec.item()
-                loss['G/loss_cls'] = g_loss_cls.item()
-
-            # =================================================================================== #
-            #                                 4. Miscellaneous                                    #
-            # =================================================================================== #
-
-            # Print out training information.
-            if (i+1) % self.log_step == 0:
-                et = time.time() - start_time
-                et = str(datetime.timedelta(seconds=et))[:-7]
-                log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
-                for tag, value in loss.items():
-                    log += ", {}: {:.4f}".format(tag, value)
-                print(log)
-
-                if self.use_tensorboard:
-                    for tag, value in loss.items():
-                        self.logger.scalar_summary(tag, value, i+1)
-
-            # Translate fixed images for debugging.
-            if (i+1) % self.sample_step == 0:
-                with torch.no_grad():
-                    x_fake_list = [x_fixed]
-                    for c_fixed in c_fixed_list:
-                        x_fake_list.append(self.G(x_fixed, c_fixed))
-                    x_concat = torch.cat(x_fake_list, dim=3)
-                    sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(i+1))
-                    save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
-                    print('Saved real and fake images into {}...'.format(sample_path))
-
-            # Save model checkpoints.
-            if (i+1) % self.model_save_step == 0:
-                G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(i+1))
-                D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(i+1))
-                torch.save(self.G.state_dict(), G_path)
-                torch.save(self.D.state_dict(), D_path)
-                print('Saved model checkpoints into {}...'.format(self.model_save_dir))
-
-            # Decay learning rates. #Change this !
-            if (i+1) % self.lr_update_step == 0 and (i+1) > (self.num_iters - self.num_iters_decay):
-                g_lr -= (self.g_lr / float(self.num_iters_decay))
-                d_lr -= (self.d_lr / float(self.num_iters_decay))
-                self.update_lr(g_lr, d_lr)
-                print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
-            """
-
+        
     def train_multi(self):
         """Train StarGAN with multiple datasets."""        
         # Data iterators.
@@ -729,69 +578,55 @@ class Solver(object):
                 self.update_lr(g_lr, d_lr)
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
-    
-    def test(self):
+    def test(self,step=None,max_images=5):
         """Translate images using StarGAN trained on a single dataset."""
         # Load the trained generator.
         self.restore_model(self.test_iters)
-        
+        step=self.num_steps if step is None else step
         # Set data loader.
         if self.dataset=='CelebA':
-            data_loader=get_loader(self.celeba_args,self.num_steps,self.batch_size)
+            data_loader=get_loader(self.celeba_args,step,self.batch_size)
         elif self.dataset=='RaFD':
-            data_loader=get_loader(self.rafd_loader,self.num_steps,self.batch_size)
+            data_loader=get_loader(self.rafd_loader,step,self.batch_size)
 
-        # if self.dataset == 'CelebA':
-        #     data_loader = self.celeba_loader
-        # elif self.dataset == 'RaFD':
-        #     data_loader = self.rafd_loader
-        
         with torch.no_grad():
             for i, (x_real, c_org) in enumerate(data_loader):
-
+                if i>max_images: break
                 # Prepare input images and target domain labels.
                 x_real = x_real.to(self.device)
                 c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
 
-                # Translate images.
                 x_fake_list = [x_real]
-                x_gen,org_embedding=self.G(x_real,c_org,step=self.num_steps)
-                result_path = os.path.join(self.result_dir, '{}-image0.jpg'.format(i+1))
-                save_image(self.denorm(x_gen.cpu()), result_path, nrow=1, padding=0)
-                
-                for c_trg in c_trg_list:
+                _,org_embedding=self.G(x_real,c_org,step=step)#Get original embedding
+
+                #Iterate over target attributes
+                interp_path=os.path.join(self.result_dir,'{}-interp'.format(i))
+                if not os.path.exists(interp_path):
+                    os.makedirs(interp_path)
+
+                for curr_i,c_trg in enumerate(c_trg_list):
                     x_trgt,trgt_embedding=self.G(x_real, c_trg,step=self.num_steps)
-                    self.interpolation(org_embedding,trgt_embedding,self.num_steps)
+                    #Interpolate between target image and src image
+                    self.interpolation(org_embedding,trgt_embedding,self.num_steps,interp_path,i,curr_i)
                     x_fake_list.append(x_trgt)
                 
                 # Save the translated images.
                 x_concat = torch.cat(x_fake_list, dim=3)
                 result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
-                sys.exit()
                 print('Saved real and fake images into {}...'.format(result_path))
 
-    def interpolation(self,src_latent,trgt_latent,step,num=3):
+    def interpolation(self,src_latent,trgt_latent,step,interp_path=os.getcwd(),num=5,idx=0,curr_i=0):
         """ Generate 'num' interpolated images b/w src and target"""
         all_imgs=[]
         for i in range(num+1):
-            curr_latent=src_latent+i*(trgt_latent-src_latent)/num
+            curr_latent=src_latent+i*(trgt_latent-src_latent)/num #Interpolate!
             with torch.no_grad():
                 fake_img=self.G(curr_latent,step=self.num_steps,partial=True)
                 all_imgs.append(fake_img)
-        x_concat = torch.cat(all_imgs, dim=3)
-        print("all images",x_concat.size())
-        intep_path=os.path.join(os.getcwd(),'{}-interp.jpg'.format(2))
-        save_image(self.denorm(x_concat.data.cpu()),intep_path,nrow=1,padding=0)
-        
-
-      #Rearrange all imgs 
-      #save_image()
-      # Loop over src and trgt 'num' of times
-    #       # make sure all attribute changes per image are included
-    #       # pass through Discriminator as a batch!
-    #       # save images
-
+        all_imgs_concat = torch.cat(all_imgs, dim=3)
+        interp_file=os.path.join(interp_path,'{}-{}-interp.jpg'.format(curr_i,idx))
+        save_image(self.denorm(all_imgs_concat.data.cpu()),interp_file,nrow=1,padding=0)
 
     def test_multi(self):
         """Translate images using StarGAN trained on multiple datasets."""
