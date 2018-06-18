@@ -19,12 +19,13 @@ def requires_grad(model, flag=True):
 class Solver(object):
     """Solver for training and testing StarGAN."""
 
-    def __init__(self, celeba_args, rafd_args, config):
+    def __init__(self, celeba_args, rafd_args,celebaHQ_args, config):
         """Initialize configurations."""
 
         # Data loader.
         self.celeba_args = celeba_args
         self.rafd_args = rafd_args
+        self.celebaHQ_args=celebaHQ_args
 
         # Model configurations.
         self.c_dim = config.c_dim
@@ -50,14 +51,13 @@ class Solver(object):
         self.beta2 = config.beta2
         self.resume_iters = config.resume_iters
         self.selected_attrs = config.selected_attrs
-        self.num_steps=2
+        self.num_steps=5
         # Test configurations.
         self.test_iters = config.test_iters
 
         # Miscellaneous.
         self.use_tensorboard = config.use_tensorboard
         self.device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-        # self.cuda = torch.cuda.is_available()
         if torch.cuda.is_available():
             print("Using Cuda")
 
@@ -80,7 +80,7 @@ class Solver(object):
 
     def build_model(self):
         """Create a generator and a discriminator."""
-        if self.dataset in ['CelebA', 'RaFD']:
+        if self.dataset in ['CelebA', 'RaFD','CelebA-HQ']:
             self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
             self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
         elif self.dataset in ['Both']:
@@ -136,8 +136,6 @@ class Solver(object):
     def gradient_penalty(self, y, x):
         """Compute gradient penalty: (L2_norm(dy/dx) - 1)**2."""
         weight = torch.ones(y.size()).to(self.device)
-        # if self.cuda:
-        #     weight.cuda()
         dydx = torch.autograd.grad(outputs=y,
                                    inputs=x,
                                    grad_outputs=weight,
@@ -145,7 +143,6 @@ class Solver(object):
                                    # create_graph=True,
                                    only_inputs=True)[0]
 
-        # dydx=torch.autograd.grad(outputs=y,inputs=x,create_graph=True)[0]
         dydx = dydx.view(dydx.size(0), -1)
         dydx_l2norm = torch.sqrt(torch.sum(dydx**2, dim=1))
         return torch.mean((dydx_l2norm-1)**2)
@@ -190,24 +187,8 @@ class Solver(object):
         elif dataset == 'RaFD':
             return F.cross_entropy(logit, target)
     
-    @staticmethod
-    def transform_op(crop_size,img_size):
-        transform = []
-
-        transform.append(T.ToPILImage())
-        transform.append(T.RandomHorizontalFlip())
-        transform.append(T.CenterCrop(crop_size))
-        transform.append(T.Resize(img_size))
-        transform.append(T.ToTensor())
-        transform.append(T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
-        transform = T.Compose(transform)
-        return transform
-
     def train(self):
         """Train StarGAN within a single dataset."""
-        
-        crop_size=178
-        ini_img_size=4
         
         # Learning rate cache for decaying.
         g_lr = self.g_lr
@@ -229,15 +210,18 @@ class Solver(object):
             if self.dataset=='CelebA':
                 data_loader=get_loader(self.celeba_args,step,self.batch_size)
             elif self.dataset=='RaFD':
-                data_loader=get_loader(self.rafd_loader,step,self.batch_size)
+                data_loader=get_loader(self.rafd_args,step,self.batch_size)
+            elif self.dataset == 'CelebA-HQ':
+                data_loader=get_loader(self.celebaHQ_args,step,self.batch_size)
 
+            sys.exit()
             # get fixed inputs of this step for debugging
             data_iter = iter(data_loader)
             x_fixed, c_org_fixed = next(data_iter)
             x_fixed = x_fixed.to(self.device)
             c_fixed_list = self.create_labels(c_org_fixed, self.c_dim, self.dataset, self.selected_attrs)
             c_org_fixed=c_org_fixed.to(self.device)
-            print(c_org_fixed)
+            # print(c_org_fixed)
 
             #Conditions for different steps
             if step==0:

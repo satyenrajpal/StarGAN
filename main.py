@@ -25,6 +25,7 @@ def main(config):
     # Data loader.
     celeba_args = None
     rafd_args = None
+    celebaHQ_args= None
 
     if config.dataset in ['CelebA', 'Both']:
         celeba_args = {'dataset':config.dataset,
@@ -34,10 +35,8 @@ def main(config):
         'crop_size': config.celeba_crop_size,
         'mode': config.mode,
         'num_workers': config.num_workers}
+    
     if config.dataset in ['RaFD', 'Both']:
-        # rafd_loader = get_loader(config.rafd_image_dir, None, None,
-        #                          config.rafd_crop_size, config.image_size, config.batch_size,
-        #                          'RaFD', config.mode, config.num_workers)
         rafd_args = {'dataset':config.dataset,
         'img_dir': config.rafd_image_dir,
         'attr_path': None,
@@ -46,12 +45,20 @@ def main(config):
         'mode': config.mode,
         'num_workers': config.num_workers}
     
+    if config.dataset in ['CelebA-HQ']:
+        celebaHQ_args={'dataset': config.dataset,
+        'h5_path':config.h5_path,
+        'selected_attrs':config.selected_attrs,
+        'mode':config.mode,
+        'num_workers':config.num_workers,
+        'hq_attr_path':config.hq_attr_path,
+        'attr_path':config.attr_path}
 
     # Solver for training and testing StarGAN.
-    solver = Solver(celeba_args, rafd_args, config)
+    solver = Solver(celeba_args, rafd_args,celebaHQ_args, config)
 
     if config.mode == 'train':
-        if config.dataset in ['CelebA', 'RaFD']:
+        if config.dataset in ['CelebA', 'RaFD','CelebA-HQ']:
             solver.train()
         elif config.dataset in ['Both']:
             solver.train_multi()
@@ -80,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
     
     # Training configuration.
-    parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both'])
+    parser.add_argument('--dataset', type=str, default='CelebA-HQ', choices=['CelebA', 'RaFD', 'Both','CelebA-HQ'])
     parser.add_argument('--batch_size', type=int, default=16, help='mini-batch size')
     parser.add_argument('--num_iters', type=int, default=10000, help='number of total iterations for training D')
     parser.add_argument('--num_iters_decay', type=int, default=2000, help='number of iterations for decaying lr')
@@ -109,6 +116,8 @@ if __name__ == '__main__':
     parser.add_argument('--model_save_dir', type=str, default='stargan/models')
     parser.add_argument('--sample_dir', type=str, default='stargan/samples')
     parser.add_argument('--result_dir', type=str, default='stargan/results')
+    parser.add_argument('--h5_path', type=str, default='../CelebA-HQ/celebaHQ')
+    parser.add_argument('--hq_attr_path', type=str, default='../CelebA-HQ/image_list.txt')
 
     # Step size.
     parser.add_argument('--log_step', type=int, default=100)
