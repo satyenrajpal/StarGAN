@@ -44,56 +44,40 @@ class TransposeConvBlock(nn.Module):
 
 class Generator(nn.Module):
     """Generator network."""
-    def __init__(self, conv_dim=[128,64], c_dim=5, repeat_num=6):
+    def __init__(self, conv_dim=[256,128,64], c_dim=5, repeat_num=6):
         super(Generator, self).__init__()
 
         #From_RGB layers -> convert 3+c_dim to conv_dim
-        self.from_rgb=nn.ModuleList([nn.Conv2d(3+c_dim,256, kernel_size=3,padding=1, bias=False), #3x32x32 -> 256x32x32
-                                     nn.Conv2d(3+c_dim,128, kernel_size=3,padding=1, bias=False), #3x64x64 -> 128x64x64
-                                     nn.Conv2d(3+c_dim,64, kernel_size=3, padding=1,bias=False)])#3x32x32 -> 64x128x128
+        self.from_rgb=nn.ModuleList([nn.Conv2d(3+c_dim,dim, kernel_size=3, padding=1, bias=False) for dim in conv_dim])
+        # self.from_rgb=nn.ModuleList([nn.Conv2d(3+c_dim,256, kernel_size=3,padding=1, bias=False), #3x32x32 -> 256x32x32
+        #                              nn.Conv2d(3+c_dim,128, kernel_size=3,padding=1, bias=False), #3x64x64 -> 128x64x64
+        #                              nn.Conv2d(3+c_dim,64, kernel_size=3, padding=1,bias=False)])#3x32x32 -> 64x128x128
         
-        # layers.append(nn.Conv2d(3+c_dim, conv_dim, kernel_size=7, stride=1, padding=3, bias=False))
-        # layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
-        # layers.append(nn.ReLU(inplace=True))
-
         # Down-sampling layers.
         self.down_sampling=nn.ModuleList([ConvBlock(64,128),    #64x128x128 -> 128x64x64
                                           ConvBlock(128,256)])  #128x64x64 -> 256x32x32
-
-        # curr_dim = conv_dim
-        # for i in range(2):
-        #     layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=4, stride=2, padding=1, bias=False))
-        #     layers.append(nn.InstanceNorm2d(curr_dim*2, affine=True, track_running_stats=True))
-        #     layers.append(nn.ReLU(inplace=True))
-        #     curr_dim = curr_dim * 2
+        
+        # self.down_sampling=nn.ModuleList([ ConvBlock(conv_dim[i],conv_dim[i-1]) for i in range(len(conv_dim-1), 0,-1) ])
 
         # Bottleneck layers.
         bottleneck_layers=[]
-        for i in range(repeat_num):
+        for _ in range(repeat_num):
             bottleneck_layers.append(ResidualBlock(dim_in=256, dim_out=256))
 
         self.bottleneck=nn.Sequential(*bottleneck_layers)
         
-        # Up-sampling layers.
-        # for i in range(2):
-        #     layers.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
-        #     layers.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
-        #     layers.append(nn.ReLU(inplace=True))
-        #     curr_dim = curr_dim // 2
-
+        # Up-sampling layers.        
         self.up_sampling=nn.ModuleList([TransposeConvBlock(256,128), # 32x32 -> 64x64 
                                         TransposeConvBlock(128,64)])# 64x64 -> 128x128
 
-        # layers.append(nn.Conv2d(curr_dim, 3, kernel_size=7, stride=1, padding=3, bias=False))
-        # layers.append(nn.Tanh())
-        # conv_toRGB=[nn.Conv2d(conv_dim[i],3, kernel_size=3, padding=1, bias=False)
-        #  for i in range(len(conv_dim))]
+        # self.up_sampling=nn.ModuleList([TransposeConvBlock(conv_dim[i],conv_dim[i+1]) for i in range(len())])
+
         self.to_rgb=nn.ModuleList([nn.Conv2d(256,3,kernel_size=3,padding=1,bias=False), #256x32x32 -> 3x32x32
                                    nn.Conv2d(128,3,kernel_size=3,padding=1,bias=False), #128x64x64 -> 3x64x64
                                    nn.Conv2d(64,3,kernel_size=3,padding=1,bias=False)]) #64x128x128 -> 3x128x128
 
-        # self.main = nn.Sequential(*layers)
-
+        # self.to_rgb=nn.ModuleList([nn.Conv2d(i,3, kernel_size=3, padding=1, bias=False) for i in conv_dim])
+    
     def forward(self, x, c=None,step=0,alpha=-1,partial=False):
         #Pass input through entire generator
         if not partial:
@@ -139,23 +123,11 @@ class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
     def __init__(self, image_size=128, conv_dim=64, c_dim=5, steps=2, ini_res=32):
         super(Discriminator, self).__init__()
-        # layers = []
-        # layers.append(nn.Conv2d(3, conv_dim, kernel_size=4, stride=2, padding=1))
-        # layers.append(nn.LeakyReLU(0.01))
-
-        # curr_dim = conv_dim
-        # for i in range(1, repeat_num):
-        #     layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=4, stride=2, padding=1))
-        #     layers.append(nn.LeakyReLU(0.01))
-        #     curr_dim = curr_dim * 2
-
-        # kernel_size = int(image_size / np.power(2, repeat_num))
-
+        
         self.from_rgb=nn.ModuleList([nn.Conv2d(3,256, kernel_size=3,padding=1),  #3x32x32 -> 256x32x32
                                      nn.Conv2d(3,128, kernel_size=3,padding=1),  #3x64x64 -> 128x64x64
                                      nn.Conv2d(3,64, kernel_size=3,padding=1)]) #3x128x128-> 64x128x128
-        # print(self.from_rgb)
-
+        
         self.progressive=nn.ModuleList([ConvBlock(128,256), #128x64^2->256x32^2 
                                         ConvBlock(64,128)]) #64x128^2->128x64^2
 
@@ -172,7 +144,6 @@ class Discriminator(nn.Module):
         self.conv2 = nn.Conv2d(res[-1], c_dim, kernel_size=2, bias=False)
         
     def forward(self, x,step=0,alpha=-1):
-        # h = self.main(x)
         h=self.from_rgb[step](x)
 
         for i in range(step, 0, -1):

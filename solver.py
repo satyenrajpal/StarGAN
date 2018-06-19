@@ -214,7 +214,7 @@ class Solver(object):
             elif self.dataset == 'CelebA-HQ':
                 data_loader=get_loader(self.celebaHQ_args,step,self.batch_size)
 
-            sys.exit()
+            print("Dataset for step {} loaded".format(step))
             # get fixed inputs of this step for debugging
             data_iter = iter(data_loader)
             x_fixed, c_org_fixed = next(data_iter)
@@ -250,7 +250,7 @@ class Solver(object):
                 rand_idx = torch.randperm(label_org.size(0))
                 label_trg = label_org[rand_idx]
 
-                if self.dataset == 'CelebA':
+                if self.dataset == 'CelebA' or self.dataset== 'CelebA-HQ':
                     c_org = label_org.clone()
                     c_trg = label_trg.clone()
                 elif self.dataset == 'RaFD':
@@ -335,7 +335,7 @@ class Solver(object):
                     loss['G/loss_fake'] = g_loss_fake.item()
                     loss['G/loss_rec'] = g_loss_rec.item()
                     loss['G/loss_cls'] = g_loss_cls.item()
-
+                sys.exit()
                 # =================================================================================== #
                 #                                 4. Miscellaneous                                    #
                 # =================================================================================== #

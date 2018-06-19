@@ -78,7 +78,7 @@ if __name__ == '__main__':
     parser.add_argument('--celeba_crop_size', type=int, default=178, help='crop size for the CelebA dataset')
     parser.add_argument('--rafd_crop_size', type=int, default=256, help='crop size for the RaFD dataset')
     parser.add_argument('--image_size', type=int, default=128, help='image resolution')
-    parser.add_argument('--g_conv_dim', type=int, default=64, help='number of conv filters in the first layer of G')
+    parser.add_argument('--g_conv_dim', type=int, default=[256,128,64], help='number of conv filters in the first layer of G')
     parser.add_argument('--d_conv_dim', type=int, default=64, help='number of conv filters in the first layer of D')
     parser.add_argument('--g_repeat_num', type=int, default=6, help='number of residual blocks in G')
     parser.add_argument('--d_repeat_num', type=int, default=6, help='number of strided conv layers in D')
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
     
     # Training configuration.
-    parser.add_argument('--dataset', type=str, default='CelebA-HQ', choices=['CelebA', 'RaFD', 'Both','CelebA-HQ'])
+    parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both','CelebA-HQ'])
     parser.add_argument('--batch_size', type=int, default=16, help='mini-batch size')
     parser.add_argument('--num_iters', type=int, default=10000, help='number of total iterations for training D')
     parser.add_argument('--num_iters_decay', type=int, default=2000, help='number of iterations for decaying lr')
