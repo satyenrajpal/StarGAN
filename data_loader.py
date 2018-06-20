@@ -86,7 +86,10 @@ class CelebA_HQ(data.Dataset):
         self.attr2idx = {}
         self.idx2attr = {}
         self.HDF5_dataset = self.preprocess(step)
-
+        img=self.HDF5_dataset[0]
+        print("HDF5 Dataset",self.HDF5_dataset)
+        print("Img shape", img.shape)
+        
         if mode == 'train':
             self.num_images = len(self.train_dataset)
         else:
@@ -133,7 +136,7 @@ class CelebA_HQ(data.Dataset):
         return lods[len(lods)-step-1]
 
     def __getitem__(self,index):
-        dataset=self.train_dataset if mode=='train' else self.test_dataset
+        dataset=self.train_dataset if self.mode=='train' else self.test_dataset
         idx,filename, label = dataset[index]
         image=self.HDF5_dataset[idx]
         image=image.transpose(1,2,0) # CHW => HWC

@@ -31,7 +31,7 @@ class Solver(object):
         self.c_dim = config.c_dim
         self.c2_dim = config.c2_dim
         self.image_size = config.image_size
-        self.g_conv_dim = config.g_conv_dim
+        # self.g_conv_dim = config.g_conv_dim
         self.d_conv_dim = config.d_conv_dim
         self.g_repeat_num = config.g_repeat_num
         self.d_repeat_num = config.d_repeat_num
@@ -59,7 +59,7 @@ class Solver(object):
         self.use_tensorboard = config.use_tensorboard
         self.device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
         if torch.cuda.is_available():
-            print("Using Cuda")
+            print("Training on device {}".format(self.device))
 
         # Directories.
         self.log_dir = config.log_dir
@@ -81,16 +81,16 @@ class Solver(object):
     def build_model(self):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD','CelebA-HQ']:
-            self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
+            self.G = Generator(self.image_size, self.c_dim, self.g_repeat_num)
+            self.D = Discriminator(image_size=self.image_size, c_dim=self.c_dim) 
         elif self.dataset in ['Both']:
-            self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
+            self.G = Generator(self.image_size, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
             self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim+self.c2_dim, self.d_repeat_num)
 
         self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
         self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
         # self.print_network(self.G, 'G')
-        # self.print_network(self.D, 'D')
+        self.print_network(self.D, 'D')
         self.G.to(self.device)
         self.D.to(self.device)
 
@@ -157,7 +157,7 @@ class Solver(object):
     def create_labels(self, c_org, c_dim=5, dataset='CelebA', selected_attrs=None):
         """Generate target domain labels for debugging and testing."""
         # Get hair color indices.
-        if dataset == 'CelebA':
+        if dataset == 'CelebA' or dataset== 'CelebA-HQ':
             hair_color_indices = []
             for i, attr_name in enumerate(selected_attrs):
                 if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
@@ -165,7 +165,7 @@ class Solver(object):
 
         c_trg_list = []
         for i in range(c_dim):
-            if dataset == 'CelebA':
+            if dataset == 'CelebA' or dataset == 'CelebA-HQ':
                 c_trg = c_org.clone()
                 if i in hair_color_indices:  # Set one hair color to 1 and the rest to 0.
                     c_trg[:, i] = 1
@@ -182,17 +182,13 @@ class Solver(object):
 
     def classification_loss(self, logit, target, dataset='CelebA'):
         """Compute binary or softmax cross entropy loss."""
-        if dataset == 'CelebA':
+        if dataset == 'CelebA' or 'CelebA-HQ':
             return F.binary_cross_entropy_with_logits(logit, target, size_average=False) / logit.size(0)
         elif dataset == 'RaFD':
             return F.cross_entropy(logit, target)
     
     def train(self):
         """Train StarGAN within a single dataset."""
-        
-        # Learning rate cache for decaying.
-        g_lr = self.g_lr
-        d_lr = self.d_lr
         
         # Start training from scratch or resume training.
         # start_iters = 0
@@ -231,6 +227,10 @@ class Solver(object):
             else:
                 step_iters=self.num_iters
             
+            # Learning rate cache for decaying.
+            g_lr = self.g_lr
+            d_lr = self.d_lr
+
             for itr in range(step_iters):
             
                 # Fade_in only for half the steps when moving on to the next step
@@ -335,7 +335,6 @@ class Solver(object):
                     loss['G/loss_fake'] = g_loss_fake.item()
                     loss['G/loss_rec'] = g_loss_rec.item()
                     loss['G/loss_cls'] = g_loss_cls.item()
-                sys.exit()
                 # =================================================================================== #
                 #                                 4. Miscellaneous                                    #
                 # =================================================================================== #
@@ -372,12 +371,12 @@ class Solver(object):
                     torch.save(self.D.state_dict(), D_path)
                     print('Saved model checkpoints into {}...'.format(self.model_save_dir))
 
-                # Decay learning rates. #Change this !
-                # if (itr+1) % self.lr_update_step == 0 and (itr+1) > (self.num_iters - self.num_iters_decay):
-                #     g_lr -= (self.g_lr / float(self.num_iters_decay))
-                #     d_lr -= (self.d_lr / float(self.num_iters_decay))
-                #     self.update_lr(g_lr, d_lr)
-                #     print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
+                Decay learning rates.
+                if (itr+1) % self.lr_update_step == 0 and (itr+1) > self.num_iters_decay and step==self.num_steps:
+                    g_lr -= (self.g_lr / float(self.num_iters_decay))
+                    d_lr -= (self.d_lr / float(self.num_iters_decay))
+                    self.update_lr(g_lr, d_lr)
+                    print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
         
     def train_multi(self):

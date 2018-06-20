@@ -78,7 +78,6 @@ if __name__ == '__main__':
     parser.add_argument('--celeba_crop_size', type=int, default=178, help='crop size for the CelebA dataset')
     parser.add_argument('--rafd_crop_size', type=int, default=256, help='crop size for the RaFD dataset')
     parser.add_argument('--image_size', type=int, default=128, help='image resolution')
-    parser.add_argument('--g_conv_dim', type=int, default=[256,128,64], help='number of conv filters in the first layer of G')
     parser.add_argument('--d_conv_dim', type=int, default=64, help='number of conv filters in the first layer of D')
     parser.add_argument('--g_repeat_num', type=int, default=6, help='number of residual blocks in G')
     parser.add_argument('--d_repeat_num', type=int, default=6, help='number of strided conv layers in D')
@@ -104,7 +103,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_iters', type=int, default=200000, help='test model from this step')
 
     # Miscellaneous.
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
     parser.add_argument('--use_tensorboard', type=str2bool, default=True)
 

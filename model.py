@@ -44,39 +44,30 @@ class TransposeConvBlock(nn.Module):
 
 class Generator(nn.Module):
     """Generator network."""
-    def __init__(self, conv_dim=[256,128,64], c_dim=5, repeat_num=6):
+    def __init__(self, image_size=128, c_dim=5, repeat_num=6, ini_res=32):
         super(Generator, self).__init__()
 
+        #Number of filters for each resolution
+        p=int(np.log2(ini_res)) 
+        q=int(np.log2(image_size))
+        nF=[256//2**(i-p) for i in range(p,q+1)] #filters->256,128,64 ...
+        print(nF)
+
         #From_RGB layers -> convert 3+c_dim to conv_dim
-        self.from_rgb=nn.ModuleList([nn.Conv2d(3+c_dim,dim, kernel_size=3, padding=1, bias=False) for dim in conv_dim])
-        # self.from_rgb=nn.ModuleList([nn.Conv2d(3+c_dim,256, kernel_size=3,padding=1, bias=False), #3x32x32 -> 256x32x32
-        #                              nn.Conv2d(3+c_dim,128, kernel_size=3,padding=1, bias=False), #3x64x64 -> 128x64x64
-        #                              nn.Conv2d(3+c_dim,64, kernel_size=3, padding=1,bias=False)])#3x32x32 -> 64x128x128
+        self.from_rgb=nn.ModuleList([nn.Conv2d(3+c_dim,dim, kernel_size=3, padding=1, bias=False) for dim in nF])
         
         # Down-sampling layers.
-        self.down_sampling=nn.ModuleList([ConvBlock(64,128),    #64x128x128 -> 128x64x64
-                                          ConvBlock(128,256)])  #128x64x64 -> 256x32x32
-        
-        # self.down_sampling=nn.ModuleList([ ConvBlock(conv_dim[i],conv_dim[i-1]) for i in range(len(conv_dim-1), 0,-1) ])
+        self.down_sampling=nn.ModuleList([ ConvBlock(nF[i],nF[i-1]) for i in range(len(nF)-1, 0,-1) ])
 
-        # Bottleneck layers.
-        bottleneck_layers=[]
-        for _ in range(repeat_num):
-            bottleneck_layers.append(ResidualBlock(dim_in=256, dim_out=256))
-
+        # Bottleneck layers (skip connections)
+        bottleneck_layers=[ResidualBlock(dim_in=256, dim_out=256) for _ in range(repeat_num)]
         self.bottleneck=nn.Sequential(*bottleneck_layers)
         
         # Up-sampling layers.        
-        self.up_sampling=nn.ModuleList([TransposeConvBlock(256,128), # 32x32 -> 64x64 
-                                        TransposeConvBlock(128,64)])# 64x64 -> 128x128
+        self.up_sampling=nn.ModuleList([TransposeConvBlock(nF[i],nF[i+1]) for i in range(len(nF)-1)])
 
-        # self.up_sampling=nn.ModuleList([TransposeConvBlock(conv_dim[i],conv_dim[i+1]) for i in range(len())])
-
-        self.to_rgb=nn.ModuleList([nn.Conv2d(256,3,kernel_size=3,padding=1,bias=False), #256x32x32 -> 3x32x32
-                                   nn.Conv2d(128,3,kernel_size=3,padding=1,bias=False), #128x64x64 -> 3x64x64
-                                   nn.Conv2d(64,3,kernel_size=3,padding=1,bias=False)]) #64x128x128 -> 3x128x128
-
-        # self.to_rgb=nn.ModuleList([nn.Conv2d(i,3, kernel_size=3, padding=1, bias=False) for i in conv_dim])
+        #Convert upsampled feature maps to RBG space
+        self.to_rgb=nn.ModuleList([nn.Conv2d(i,3, kernel_size=3, padding=1, bias=False) for i in nF])
     
     def forward(self, x, c=None,step=0,alpha=-1,partial=False):
         #Pass input through entire generator
@@ -121,18 +112,24 @@ class Generator(nn.Module):
 
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
-    def __init__(self, image_size=128, conv_dim=64, c_dim=5, steps=2, ini_res=32):
+    def __init__(self, image_size=128, c_dim=5, steps=2, ini_res=32):
         super(Discriminator, self).__init__()
         
-        self.from_rgb=nn.ModuleList([nn.Conv2d(3,256, kernel_size=3,padding=1),  #3x32x32 -> 256x32x32
-                                     nn.Conv2d(3,128, kernel_size=3,padding=1),  #3x64x64 -> 128x64x64
-                                     nn.Conv2d(3,64, kernel_size=3,padding=1)]) #3x128x128-> 64x128x128
         
-        self.progressive=nn.ModuleList([ConvBlock(128,256), #128x64^2->256x32^2 
-                                        ConvBlock(64,128)]) #64x128^2->128x64^2
-
+        p=int(np.log2(ini_res))
+        q=int(np.log2(image_size))
+        #filters->256(32^2),128(64^2),64(128^2) ...
+        nF=[256//2**(i-p) for i in range(p,q+1)] 
+        self.from_rgb=nn.ModuleList([nn.Conv2d(3,i,kernel_size=3,padding=1) for i in nF])
+        # self.from_rgb=nn.ModuleList([nn.Conv2d(3,256, kernel_size=3,padding=1),  #3x32x32 -> 256x32x32
+        #                              nn.Conv2d(3,128, kernel_size=3,padding=1),  #3x64x64 -> 128x64x64
+        #                              nn.Conv2d(3,64, kernel_size=3,padding=1)]) #3x128x128-> 64x128x128
+        
+        # self.progressive=nn.ModuleList([ConvBlock(128,256), #128x64^2->256x32^2 
+        #                                 ConvBlock(64,128)]) #64x128^2->128x64^2
+        self.progressive=nn.ModuleList([ConvBlock(nF[i+1],nF[i]) for i in range(len(nF)-1)])
         # Downsample from 256x32x32 -> 512x16x16 -> 1024x8x8 -> 2048x4x4 -> 4096x2x2
-        res=[2**(math.log2(conv_dim)+2+i) for i in range(int(math.log2(ini_res)))]
+        res=[2**(math.log2(nF[-1])+2+i) for i in range(p)]
 
         block=[]
         for i in range(len(res)-1) :
