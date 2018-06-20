@@ -127,8 +127,9 @@ class Solver(object):
         """Reset the gradient buffers."""
         self.g_optimizer.zero_grad()
         self.d_optimizer.zero_grad()
-
-    def denorm(self, x):
+    
+    @staticmethod
+    def denorm(x):
         """Convert the range from [-1, 1] to [0, 1]."""
         out = (x + 1) / 2
         return out.clamp_(0, 1)
@@ -230,7 +231,7 @@ class Solver(object):
             # Learning rate cache for decaying.
             g_lr = self.g_lr
             d_lr = self.d_lr
-
+            
             for itr in range(step_iters):
             
                 # Fade_in only for half the steps when moving on to the next step
@@ -266,8 +267,6 @@ class Solver(object):
                 # =================================================================================== #
                 #                             2. Train the discriminator                              #
                 # =================================================================================== #
-                # self.D.zero_grad()
-                # self.G.zero_grad()
                 requires_grad(self.G,False)
                 requires_grad(self.D,True)
 
@@ -371,13 +370,12 @@ class Solver(object):
                     torch.save(self.D.state_dict(), D_path)
                     print('Saved model checkpoints into {}...'.format(self.model_save_dir))
 
-                Decay learning rates.
+                #Decay learning rates.
                 if (itr+1) % self.lr_update_step == 0 and (itr+1) > self.num_iters_decay and step==self.num_steps:
                     g_lr -= (self.g_lr / float(self.num_iters_decay))
                     d_lr -= (self.d_lr / float(self.num_iters_decay))
                     self.update_lr(g_lr, d_lr)
                     print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
-
         
     def train_multi(self):
         """Train StarGAN with multiple datasets."""        
