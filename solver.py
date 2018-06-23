@@ -51,7 +51,7 @@ class Solver(object):
         self.beta2 = config.beta2
         self.resume_iters = config.resume_iters
         self.selected_attrs = config.selected_attrs
-        self.num_steps=5
+        self.num_steps=2
         # Test configurations.
         self.test_iters = config.test_iters
 
@@ -91,8 +91,8 @@ class Solver(object):
         self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
         # self.print_network(self.G, 'G')
         self.print_network(self.D, 'D')
-        self.G.to(self.device)
         self.D.to(self.device)
+        self.G.to(self.device)
 
     def print_network(self, model, name):
         """Print out the network information."""
