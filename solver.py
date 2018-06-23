@@ -11,6 +11,7 @@ import datetime
 from torchvision import transforms as T
 from data_loader import get_loader
 import sys
+import math
 
 def requires_grad(model, flag=True):
     for p in model.parameters():
@@ -51,7 +52,8 @@ class Solver(object):
         self.beta2 = config.beta2
         self.resume_iters = config.resume_iters
         self.selected_attrs = config.selected_attrs
-        self.num_steps=2
+        self.num_steps=int(math.log2(config.image_size)-5)
+        
         # Test configurations.
         self.test_iters = config.test_iters
 
