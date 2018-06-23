@@ -360,7 +360,7 @@ class Solver(object):
                         for c_fixed in c_fixed_list:
                             x_out,_=self.G(x_fixed, c_fixed,step,alpha)
                             x_fake_list.append(x_out)
-                        print(x_fake_list)
+                        # print(x_fake_list)
                         x_concat = torch.cat(x_fake_list, dim=3)
                         sample_path = os.path.join(self.sample_dir, '{}-{}-images.jpg'.format(step,itr+1))
                         save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
