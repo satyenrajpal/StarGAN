@@ -52,6 +52,7 @@ class Solver(object):
         self.use_tensorboard = config.use_tensorboard
         self.device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
         print("USING DEVICE: ", self.device)
+        
         # Directories.
         self.log_dir = config.log_dir
         self.sample_dir = config.sample_dir
@@ -91,8 +92,8 @@ class Solver(object):
         num_params = 0
         for p in model.parameters():
             num_params += p.numel()
-        print(model)
         print(name)
+        print(model)
         print("The number of parameters: {}".format(num_params))
 
     def restore_model(self, resume_iters):
