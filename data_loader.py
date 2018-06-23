@@ -88,7 +88,6 @@ class CelebA_HQ(data.Dataset):
         self.HDF5_dataset = self.preprocess(step)
         img=self.HDF5_dataset[0]
         print("HDF5 Dataset",self.HDF5_dataset)
-        print("Img shape", img.shape)
         
         if mode == 'train':
             self.num_images = len(self.train_dataset)

@@ -129,7 +129,9 @@ class Discriminator(nn.Module):
         #                                 ConvBlock(64,128)]) #64x128^2->128x64^2
         self.progressive=nn.ModuleList([ConvBlock(nF[i+1],nF[i]) for i in range(len(nF)-1)])
         # Downsample from 256x32x32 -> 512x16x16 -> 1024x8x8 -> 2048x4x4 -> 4096x2x2
-        res=[2**(math.log2(nF[-1])+2+i) for i in range(p)]
+        #32x32 is treated as Baseline step 
+        res=[2**(p+3+i) for i in range(p)]
+        print("Discriminator",res)
 
         block=[]
         for i in range(len(res)-1) :
