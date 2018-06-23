@@ -102,6 +102,7 @@ class Generator(nn.Module):
             return out,btlneck_out
         else:
             #input 'x' is embedding and is passed only through the upsampling layers
+            #FOR INTERPOLATION!!!!
             out=x
             for i, up in enumerate(self.up_sampling):
                 if i<step:
