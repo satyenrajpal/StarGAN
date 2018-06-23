@@ -357,9 +357,10 @@ class Solver(object):
                 if (itr+1) % self.sample_step == 0:
                     with torch.no_grad():
                         x_fake_list = [x_fixed]
+                        print(type(x_fixed))
                         for c_fixed in c_fixed_list:
-                            out,_=self.G(x_fixed, c_fixed,step,alpha)
-                            x_fake_list.append(out)
+                            x_out,_=self.G(x_fixed, c_fixed,step,alpha)
+                            x_fake_list.append(x_out)
                         x_concat = torch.cat(x_fake_list, dim=3)
                         sample_path = os.path.join(self.sample_dir, '{}-{}-images.jpg'.format(step,itr+1))
                         save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
