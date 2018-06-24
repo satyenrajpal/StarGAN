@@ -139,8 +139,7 @@ class CelebA_HQ(data.Dataset):
         idx,filename, label = dataset[index]
         image=self.HDF5_dataset[idx]
         image=image.transpose(1,2,0) # CHW => HWC
-        print("Image idx - {}, label-{}".format(idx,label))
-
+        
         if self.transform is not None:
             return self.transform(image), torch.FloatTensor(label)
         else:
