@@ -204,14 +204,22 @@ class Solver(object):
         
         fade_in=False
         for step in range(self.num_steps+1):
-            
+            #Change batch size according to image size
+            if step in [0,1,2]:
+                batch_size=self.batch_size # 32^2, 64^2, 128^2
+            elif step==3 or step==4:
+                batch_size=self.batch_size//2 #256^2, 512^2
+            elif step==4:
+                batch_size=3 #1024^2
+
+            batch_size=self.batch_size if step in [0,1,2]
             #Get data_loader based on step
             if self.dataset=='CelebA':
                 data_loader=get_loader(self.celeba_args,step,self.batch_size)
             elif self.dataset=='RaFD':
                 data_loader=get_loader(self.rafd_args,step,self.batch_size)
             elif self.dataset == 'CelebA-HQ':
-                data_loader=get_loader(self.celebaHQ_args,step,self.batch_size)
+                data_loader=get_loader(self.celebaHQ_args,step,batch_size)
 
             print("Dataset for step {} loaded".format(step))
             # get fixed inputs of this step for debugging
