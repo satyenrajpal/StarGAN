@@ -3,7 +3,7 @@ import argparse
 from solver import Solver
 from data_loader import get_loader
 from torch.backends import cudnn
-
+import math
 
 def str2bool(v):
     return v.lower() in ('true')
@@ -11,7 +11,12 @@ def str2bool(v):
 def main(config):
     # For fast training.
     cudnn.benchmark = True
-
+    
+    config.log_dir= os.path.join(config.save_dir,'logs')
+    config.model_save_dir= os.path.join(config.save_dir,'models')
+    config.result_dir= os.path.join(config.save_dir,'results')
+    config.sample_dir= os.path.join(config.save_dir,'samples')
+    
     # Create directories if not exist.
     if not os.path.exists(config.log_dir):
         os.makedirs(config.log_dir)
@@ -53,7 +58,8 @@ def main(config):
         'num_workers':config.num_workers,
         'hq_attr_path':config.hq_attr_path,
         'attr_path':config.attr_path}
-
+    
+    
     # Solver for training and testing StarGAN.
     solver = Solver(celeba_args, rafd_args,celebaHQ_args, config)
 
@@ -111,10 +117,10 @@ if __name__ == '__main__':
     parser.add_argument('--celeba_image_dir', type=str, default='../CelebA_nocrop/img_celeba')
     parser.add_argument('--attr_path', type=str, default='../CelebA_nocrop/list_attr_celeba.txt')
     parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
-    parser.add_argument('--log_dir', type=str, default='stargan/logs')
-    parser.add_argument('--model_save_dir', type=str, default='stargan/models')
-    parser.add_argument('--sample_dir', type=str, default='stargan/samples')
-    parser.add_argument('--result_dir', type=str, default='stargan/results')
+    parser.add_argument('--save_dir', type=str, default='stargan')
+    # parser.add_argument('--model_save_dir', type=str, default='stargan/models')
+    # parser.add_argument('--sample_dir', type=str, default='stargan/samples')
+    # parser.add_argument('--result_dir', type=str, default='stargan/results')
     parser.add_argument('--h5_path', type=str, default='../CelebA-HQ/celebaHQ')
     parser.add_argument('--hq_attr_path', type=str, default='../CelebA-HQ/image_list.txt')
 
