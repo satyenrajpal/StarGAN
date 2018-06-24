@@ -212,7 +212,6 @@ class Solver(object):
             elif step==5:
                 batch_size=3 #1024^2
 
-            batch_size=self.batch_size if step in [0,1,2]
             #Get data_loader based on step
             if self.dataset=='CelebA':
                 data_loader=get_loader(self.celeba_args,step,self.batch_size)
