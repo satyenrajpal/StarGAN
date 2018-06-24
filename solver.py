@@ -207,9 +207,9 @@ class Solver(object):
             #Change batch size according to image size
             if step in [0,1,2]:
                 batch_size=self.batch_size # 32^2, 64^2, 128^2
-            elif step==3 or step==4:
+            elif step in [3,4]:
                 batch_size=self.batch_size//2 #256^2, 512^2
-            elif step==4:
+            elif step==5:
                 batch_size=3 #1024^2
 
             batch_size=self.batch_size if step in [0,1,2]
