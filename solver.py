@@ -346,7 +346,6 @@ class Solver(object):
                 # =================================================================================== #
                 #                                 4. Miscellaneous                                    #
                 # =================================================================================== #
-
                 # Print out training information.
                 if (itr+1) % self.log_step == 0:
                     et = time.time() - start_time

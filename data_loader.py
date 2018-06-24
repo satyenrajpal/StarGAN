@@ -117,7 +117,7 @@ class CelebA_HQ(data.Dataset):
         for i,line in enumerate(cAHQ_lines):
             split=line.split()
             filename=split[2]
-            idx=int(split[0]) #<Index corresponding to image in HDF5 dataset
+            index=int(split[0]) #<Index corresponding to image in HDF5 dataset
             attr_line=cA_lines[int(split[1])] #<- Corresponding idx in celebA file
             attr_values=attr_line.split()[1:] #<- [0] is filename
 
@@ -127,9 +127,9 @@ class CelebA_HQ(data.Dataset):
                 label.append(attr_values[idx]=='1')
 
             if (i+1) < 1000:
-                self.test_dataset.append([idx,filename,label])
+                self.test_dataset.append([index,filename,label])
             else:
-                self.train_dataset.append([idx,filename,label])
+                self.train_dataset.append([index,filename,label])
 
         print('Finished preprocessing the CelebA-HQ dataset...')
         return lods[len(lods)-step-1]
@@ -139,6 +139,8 @@ class CelebA_HQ(data.Dataset):
         idx,filename, label = dataset[index]
         image=self.HDF5_dataset[idx]
         image=image.transpose(1,2,0) # CHW => HWC
+        print("Image idx - {}, label-{}".format(idx,label))
+
         if self.transform is not None:
             return self.transform(image), torch.FloatTensor(label)
         else:
