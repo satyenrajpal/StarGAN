@@ -50,16 +50,16 @@ class Generator(nn.Module):
         #Number of filters for each resolution
         p=int(np.log2(ini_res)) 
         q=int(np.log2(image_size))
-        nF=[256//2**(i-p) for i in range(p,q+1)] #filters->256,128,64 ...
-        print(nF)
-
+        nF=[256//2**(i-p) for i in range(p,q+1)]
+        print("Generator Filters: ",nF)
+        # 256, 128, 64  
         #From_RGB layers -> convert 3+c_dim to conv_dim
         self.from_rgb=nn.ModuleList([nn.Conv2d(3+c_dim,dim, kernel_size=3, padding=1, bias=False) for dim in nF])
         
         # Down-sampling layers.
         self.down_sampling=nn.ModuleList([ ConvBlock(nF[i],nF[i-1]) for i in range(len(nF)-1, 0,-1) ])
 
-        # Bottleneck layers (skip connections)
+        # Bottleneck layers (residual connections)
         bottleneck_layers=[ResidualBlock(dim_in=256, dim_out=256) for _ in range(repeat_num)]
         self.bottleneck=nn.Sequential(*bottleneck_layers)
         
@@ -69,10 +69,11 @@ class Generator(nn.Module):
         #Convert upsampled feature maps to RBG space
         self.to_rgb=nn.ModuleList([nn.Conv2d(i,3, kernel_size=3, padding=1, bias=False) for i in nF])
     
-    def forward(self, x, c=None,step=0,alpha=-1,partial=False):
+    def forward(self, x, c=None,step=0,alpha=-1,interpolate=False,partial=False):
+        
         #Pass input through entire generator
         if not partial:
-        # Replicate spatially and concatenate domain information.
+            # Replicate spatially and concatenate domain information.
             c = c.view(c.size(0), c.size(1), 1, 1)
             c = c.repeat(1, 1, x.size(2), x.size(3))
             x = torch.cat([x, c], dim=1)
@@ -94,22 +95,24 @@ class Generator(nn.Module):
 
             out=self.to_rgb[step](out)
 
+            # Fade in previous layer
             if step>0 and 0<=alpha<1:
                 skip_rgb=self.to_rgb[step-1](prev_layer)
                 skip_rgb=F.upsample(skip_rgb,scale_factor=2)
                 out=(1-alpha)*skip_rgb + alpha*out
 
-            return out,btlneck_out
+            #return embedding only when interpolate
+            if interpolate:
+                return out,btlneck_out
         else:
             #input 'x' is embedding and is passed only through the upsampling layers
-            #FOR INTERPOLATION!!!!
-            out=x
+            #FOR INTERPOLATION
             for i, up in enumerate(self.up_sampling):
                 if i<step:
-                    out=up(out)
-            out=self.to_rgb[step](out)
+                    x=up(x)
+            out=self.to_rgb[step](x)
 
-            return out
+        return out
 
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
@@ -119,21 +122,18 @@ class Discriminator(nn.Module):
         
         p=int(np.log2(ini_res))
         q=int(np.log2(image_size))
+        
         #filters->256(32^2),128(64^2),64(128^2) ...
         nF=[256//2**(i-p) for i in range(p,q+1)] 
         self.from_rgb=nn.ModuleList([nn.Conv2d(3,i,kernel_size=3,padding=1) for i in nF])
-        # self.from_rgb=nn.ModuleList([nn.Conv2d(3,256, kernel_size=3,padding=1),  #3x32x32 -> 256x32x32
-        #                              nn.Conv2d(3,128, kernel_size=3,padding=1),  #3x64x64 -> 128x64x64
-        #                              nn.Conv2d(3,64, kernel_size=3,padding=1)]) #3x128x128-> 64x128x128
         
-        # self.progressive=nn.ModuleList([ConvBlock(128,256), #128x64^2->256x32^2 
-        #                                 ConvBlock(64,128)]) #64x128^2->128x64^2
+        # Downsampling layers (for higher resolutions) 
         self.progressive=nn.ModuleList([ConvBlock(nF[i+1],nF[i]) for i in range(len(nF)-1)])
+        
         # Downsample from 256x32x32 -> 512x16x16 -> 1024x8x8 -> 2048x4x4 -> 4096x2x2
         #32x32 is treated as Baseline step 
         res=[2**(p+3+i) for i in range(p)]
-        print("Discriminator",res)
-
+        print("Discriminator resolutions",res)
         block=[]
         for i in range(len(res)-1) :
             block.append(nn.Conv2d(int(res[i]), int(res[i+1]), kernel_size=4, stride=2, padding=1))

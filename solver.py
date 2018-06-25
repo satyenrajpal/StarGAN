@@ -221,6 +221,7 @@ class Solver(object):
                 data_loader=get_loader(self.celebaHQ_args,step,batch_size)
 
             print("Dataset for step {} loaded".format(step))
+            
             # get fixed inputs of this step for debugging
             data_iter = iter(data_loader)
             x_fixed, c_org_fixed = next(data_iter)
@@ -230,7 +231,7 @@ class Solver(object):
             # print(c_org_fixed)
 
             #Conditions for different steps
-            if step==0:
+            if step==0 and step!=self.num_steps:
                 step_iters=self.num_iters//2
             elif step==self.num_steps:
                 step_iters=self.num_iters*2
@@ -244,19 +245,22 @@ class Solver(object):
             for itr in range(step_iters):
             
                 # Fade_in only for half the steps when moving on to the next step
-                fade_in=(step!=0) and itr<self.num_steps//2
-                #weight for fading in
-                alpha=-1 if not fade_in else min(1,0.00002*(itr))
+                fade_in=(step!=0) and itr<step_iters//2
+                # Weight for fading in. Occurs only for half the step_iters
+                alpha=-1 if not fade_in else min(1,(itr/(step_iters//2))) 
             
                 # =================================================================================== #
                 #                             1. Preprocess input data                                #
                 # =================================================================================== #
 
+                #Fetch real images and labels
                 try:
                     x_real, label_org = next(data_iter)
                 except:
                     data_iter = iter(data_loader)
                     x_real, label_org = next(data_iter)
+                
+                # Generate target domain labels randomly
                 rand_idx = torch.randperm(label_org.size(0))
                 label_trg = label_org[rand_idx]
 
@@ -287,8 +291,7 @@ class Solver(object):
                 d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
                 
                 # Compute loss with fake images.
-                x_fake,_ = self.G(x_real, c_trg,step,alpha) #take in step as argument
-                # print("Fake image:", x_fake.size())
+                x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
                 out_src, out_cls = self.D(x_fake.detach(),step,alpha) #take in step as argument
                 d_loss_fake = torch.mean(out_src)
                 
@@ -297,11 +300,10 @@ class Solver(object):
                 x_hat = (eps * x_real.data + (1 - eps) * x_fake.data)
                 x_hat = Variable(x_hat,requires_grad=True)
                 out_src, _ = self.D(x_hat,step,alpha) #Take in step as argument
-                d_loss_gp = self.gradient_penalty(out_src.sum(), x_hat)
+                d_loss_gp = self.gradient_penalty(out_src, x_hat)
                 
                 # Backward and optimize.
                 d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-                
                 self.reset_grad()
                 d_loss.backward()
                 self.d_optimizer.step()
@@ -322,7 +324,7 @@ class Solver(object):
                     requires_grad(self.D,False)
 
                     # Original-to-target domain.
-                    x_fake,_ = self.G(x_real, c_trg,step,alpha) 
+                    x_fake = self.G(x_real, c_trg,step,alpha) 
                     out_src, out_cls = self.D(x_fake,step,alpha) 
                     g_loss_fake = - torch.mean(out_src)
 
@@ -330,7 +332,7 @@ class Solver(object):
                     g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
 
                     # Target-to-original domain.
-                    x_reconst,_ = self.G(x_fake, c_org,step,alpha) 
+                    x_reconst= self.G(x_fake, c_org,step,alpha) 
                     g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
 
                     # Backward and optimize.
@@ -364,9 +366,8 @@ class Solver(object):
                     with torch.no_grad():
                         x_fake_list = [x_fixed]
                         for c_fixed in c_fixed_list:
-                            x_out,_=self.G(x_fixed, c_fixed,step,alpha)
+                            x_out=self.G(x_fixed, c_fixed,step,alpha)
                             x_fake_list.append(x_out)
-                        # print(x_fake_list)
                         x_concat = torch.cat(x_fake_list, dim=3)
                         sample_path = os.path.join(self.sample_dir, '{}-{}-images.jpg'.format(step,itr+1))
                         save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
@@ -380,7 +381,7 @@ class Solver(object):
                     torch.save(self.D.state_dict(), D_path)
                     print('Saved model checkpoints into {}...'.format(self.model_save_dir))
 
-                #Decay learning rates.
+                # Decay learning rates.
                 if (itr+1) % self.lr_update_step == 0 and (itr+1) > self.num_iters_decay and step==self.num_steps:
                     g_lr -= (self.g_lr / float(self.num_iters_decay))
                     d_lr -= (self.d_lr / float(self.num_iters_decay))
@@ -571,7 +572,7 @@ class Solver(object):
 
     def test(self,step=None,max_images=5):
         """Translate images using StarGAN trained on a single dataset."""
-        # Load the trained generator.
+        # Load the trained generator. 
         self.restore_model(self.test_iters)
         step=self.num_steps if step is None else step
         # Set data loader.
