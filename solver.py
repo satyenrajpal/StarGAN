@@ -60,6 +60,7 @@ class Solver(object):
         # Miscellaneous.
         self.use_tensorboard = config.use_tensorboard
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
         if torch.cuda.is_available():
             print("Training on device {}".format(self.device))
 
@@ -201,8 +202,8 @@ class Solver(object):
 
         print('Start training...')
         start_time = time.time()
-        
         fade_in=False
+        
         for step in range(self.num_steps+1):
             #Change batch size according to image size
             if step in [0,1,2]:
@@ -227,8 +228,6 @@ class Solver(object):
             x_fixed, c_org_fixed = next(data_iter)
             x_fixed = x_fixed.to(self.device)
             c_fixed_list = self.create_labels(c_org_fixed, self.c_dim, self.dataset, self.selected_attrs)
-            c_org_fixed=c_org_fixed.to(self.device)
-            # print(c_org_fixed)
 
             #Conditions for different steps
             if step==0 and step!=self.num_steps:
@@ -369,6 +368,10 @@ class Solver(object):
                             x_out=self.G(x_fixed, c_fixed,step,alpha)
                             x_fake_list.append(x_out)
                         x_concat = torch.cat(x_fake_list, dim=3)
+                        
+                        if self.use_tensorboard:
+                            self.logger.image_summary('step-{}'.format(step),x_concat,itr+1)
+                        
                         sample_path = os.path.join(self.sample_dir, '{}-{}-images.jpg'.format(step,itr+1))
                         save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
                         print('Saved real and fake images into {}...'.format(sample_path))
