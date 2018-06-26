@@ -103,10 +103,10 @@ class Generator(nn.Module):
             out=self.to_rgb[step](out)
 
             # Fade in previous layer
-            # if step>0 and 0<=alpha<1:
-            #     skip_rgb=self.to_rgb[step-1](prev_layer)
-            #     skip_rgb=F.upsample(skip_rgb,scale_factor=2)
-            #     out=(1-alpha)*skip_rgb + alpha*out
+            if step>0 and 0<=alpha<1:
+                skip_rgb=self.to_rgb[step-1](prev_layer)
+                skip_rgb=F.upsample(skip_rgb,scale_factor=2)
+                out=(1-alpha)*skip_rgb + alpha*out
 
             #return embedding only when interpolate
             if interpolate:
@@ -128,19 +128,19 @@ class Discriminator(nn.Module):
         
         
         p=int(np.log2(ini_res))
-        # q=int(np.log2(image_size))
+        q=int(np.log2(image_size))
         
         #filters->256(32^2),128(64^2),64(128^2) ...
         # nF=[256//2**(i-p) for i in range(p,q+1)] 
-        # self.from_rgb=nn.ModuleList([nn.Conv2d(3,i,kernel_size=3,padding=1) for i in nF])
-        self.from_rgb=nn.ModuleList([nn.Conv2d(3,256,kernel_size=3,padding=1),
-            nn.Conv2d(3,128,kernel_size=3,padding=1),
-            nn.Conv2d(3,64,kernel_size=3,padding=1)])
+        self.from_rgb=nn.ModuleList([nn.Conv2d(3,i,kernel_size=3,padding=1) for i in nF])
+        # self.from_rgb=nn.ModuleList([nn.Conv2d(3,256,kernel_size=3,padding=1),
+        #     nn.Conv2d(3,128,kernel_size=3,padding=1),
+        #     nn.Conv2d(3,64,kernel_size=3,padding=1)])
 
         # Downsampling layers (for higher resolutions) 
-        # self.progressive=nn.ModuleList([ConvBlock(nF[i+1],nF[i]) for i in range(len(nF)-1)])
-        self.progressive=nn.ModuleList([ConvBlock(64,128),  #128^2 -> 64^2
-                                        ConvBlock(128,256)])#64^2 -> 32^2 
+        self.progressive=nn.ModuleList([ConvBlock(nF[i+1],nF[i]) for i in range(len(nF)-1)])
+        # self.progressive=nn.ModuleList([ConvBlock(64,128),  #128^2 -> 64^2
+                                        # ConvBlock(128,256)])#64^2 -> 32^2 
 
         # Downsample from 256x32x32 -> 512x16x16 -> 1024x8x8 -> 2048x4x4 -> 4096x2x2
         #32x32 is treated as Baseline step 
