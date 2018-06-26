@@ -132,8 +132,7 @@ class Solver(object):
         self.g_optimizer.zero_grad()
         self.d_optimizer.zero_grad()
     
-    @staticmethod
-    def denorm(x):
+    def denorm(self,x):
         """Convert the range from [-1, 1] to [0, 1]."""
         out = (x + 1) / 2
         return out.clamp_(0, 1)
@@ -216,9 +215,9 @@ class Solver(object):
 
             #Get data_loader based on step
             if self.dataset=='CelebA':
-                data_loader=get_loader(self.celeba_args,step,self.batch_size)
+                data_loader=get_loader(self.celeba_args,step,batch_size)
             elif self.dataset=='RaFD':
-                data_loader=get_loader(self.rafd_args,step,self.batch_size)
+                data_loader=get_loader(self.rafd_args,step,batch_size)
             elif self.dataset == 'CelebA-HQ':
                 data_loader=get_loader(self.celebaHQ_args,step,batch_size)
 
