@@ -143,8 +143,8 @@ class Solver(object):
         dydx = torch.autograd.grad(outputs=y,
                                    inputs=x,
                                    grad_outputs=weight,
-                                   # retain_graph=True,
-                                   # create_graph=True,
+                                   retain_graph=True,
+                                   create_graph=True,
                                    only_inputs=True)[0]
 
         dydx = dydx.view(dydx.size(0), -1)
@@ -245,7 +245,7 @@ class Solver(object):
             
                 # Fade_in only for half the steps when moving on to the next step
                 fade_in=(step!=0) and itr<step_iters//2
-                # Weight for fading in. Occurs only for half the step_iters
+                # Weight for fading in only for half the step_iters
                 alpha=-1 if not fade_in else min(1,(itr/(step_iters//2))) 
             
                 # =================================================================================== #
