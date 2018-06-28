@@ -69,6 +69,7 @@ class Generator(nn.Module):
 
         if return_interp:
             return x,h
+        return x
         
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""

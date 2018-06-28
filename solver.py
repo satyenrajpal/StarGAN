@@ -81,8 +81,8 @@ class Solver(object):
 
         self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
         self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
-        self.print_network(self.G, 'G')
-        self.print_network(self.D, 'D')
+        # self.print_network(self.G, 'G')
+        # self.print_network(self.D, 'D')
             
         self.G.to(self.device)
         self.D.to(self.device)
@@ -102,17 +102,20 @@ class Solver(object):
         G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
         D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
         G=torch.load(G_path, map_location=lambda storage, loc: storage)
+
         new=list(G.items())
-        keys_G=self.G.state_dict()
+        G_state_dict=self.G.state_dict()
         count=0
-        for key,value in keys_G.items():
-            layer_name,weights=new[count]
-            keys_G[key]=weights
+        for key,value in G_state_dict.items():
+            _,weights=new[count]
+            G_state_dict[key]=weights
             count+=1
+
         self.D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
         if load_state_dict:
             self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
-
+        self.G.load_state_dict(G_state_dict)
+        
     def build_tensorboard(self):
         """Build a tensorboard logger."""
         from logger import Logger
@@ -535,7 +538,7 @@ class Solver(object):
         """Translate images using StarGAN trained on a single dataset."""
         # Load the trained generator.
         self.restore_model(self.test_iters)
-        
+
         # Set data loader.
         if self.dataset == 'CelebA':
             data_loader = self.celeba_loader
