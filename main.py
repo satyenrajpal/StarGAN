@@ -78,7 +78,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_critic', type=int, default=5, help='number of D updates per each G update')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for Adam optimizer')
     parser.add_argument('--beta2', type=float, default=0.999, help='beta2 for Adam optimizer')
-    parser.add_argument('--resume_iters', type=int, default=None, help='resume training from this step')
+    parser.add_argument('--resume_iters', type=int, default=160000, help='resume training from this step')
     parser.add_argument('--selected_attrs', '--list', nargs='+', help='selected attributes for the CelebA dataset',
                         default=['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young'])
 
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--attr_path', type=str, default='../celebA/Anno/list_attr_celeba.txt')
     parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
     parser.add_argument('--log_dir', type=str, default='stargan/logs')
-    parser.add_argument('--model_save_dir', type=str, default='stargan/models')
+    parser.add_argument('--model_save_dir', type=str, default='Baseline_results/models')
     parser.add_argument('--sample_dir', type=str, default='stargan/samples')
     parser.add_argument('--result_dir', type=str, default='stargan/results')
 

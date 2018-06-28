@@ -50,7 +50,7 @@ class Solver(object):
 
         # Miscellaneous.
         self.use_tensorboard = config.use_tensorboard
-        self.device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print("USING DEVICE: ", self.device)
         
         # Directories.
@@ -96,13 +96,22 @@ class Solver(object):
         print(model)
         print("The number of parameters: {}".format(num_params))
 
-    def restore_model(self, resume_iters):
+    def restore_model(self, resume_iters,load_state_dict=False):
         """Restore the trained generator and discriminator."""
         print('Loading the trained models from step {}...'.format(resume_iters))
         G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
         D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
-        self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
+        G=torch.load(G_path, map_location=lambda storage, loc: storage)
+        new=list(G.items())
+        keys_G=self.G.state_dict()
+        count=0
+        for key,value in keys_G.items():
+            layer_name,weights=new[count]
+            keys_G[key]=weights
+            count+=1
         self.D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
+        if load_state_dict:
+            self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
 
     def build_tensorboard(self):
         """Build a tensorboard logger."""
@@ -173,7 +182,8 @@ class Solver(object):
             c_trg_list.append(c_trg.to(self.device))
         return c_trg_list
 
-    def classification_loss(self, logit, target, dataset='CelebA'):
+    @staticmethod
+    def classification_loss(logit, target, dataset='CelebA'):
         """Compute binary or softmax cross entropy loss."""
         if dataset == 'CelebA':
             return F.binary_cross_entropy_with_logits(logit, target, size_average=False) / logit.size(0)
@@ -538,11 +548,17 @@ class Solver(object):
                 # Prepare input images and target domain labels.
                 x_real = x_real.to(self.device)
                 c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
-
+                c_org=c_org.to(self.device)
+                
+                #Obtain src hidden state
+                _,src_h=self.G(x_real,c_org,return_interp=True)
+                
                 # Translate images.
                 x_fake_list = [x_real]
-                for c_trg in c_trg_list:
-                    x_fake_list.append(self.G(x_real, c_trg))
+                for curr_trg_idx,c_trg in enumerate(c_trg_list):
+                    x_trgt,trg_h=self.G(x_real,c_trg,return_interp=True)
+                    self.interpolation(src_h,trg_h,idx=i,curr_i=curr_trg_idx)
+                    x_fake_list.append(x_trgt)
 
                 # Save the translated images.
                 x_concat = torch.cat(x_fake_list, dim=3)
@@ -550,6 +566,19 @@ class Solver(object):
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
                 sys.exit()
+
+    def interpolation(self,src_latent,trgt_latent,interp_path=os.getcwd(),num=5,idx=0,curr_i=0):
+        """ Generate 'num' interpolated images b/w src and target"""
+        all_imgs=[]
+        for i in range(num+1):
+            curr_latent=src_latent+i*(trgt_latent-src_latent)/num #Interpolate!
+            with torch.no_grad():
+                fake_img=self.G(curr_latent,partial=True)
+                all_imgs.append(fake_img)
+        all_imgs_concat = torch.cat(all_imgs, dim=3)
+        interp_file=os.path.join(interp_path,'{}-{}-interp.jpg'.format(curr_i,idx))
+        save_image(self.denorm(all_imgs_concat.data.cpu()),interp_file,nrow=1,padding=0)
+
 
     def test_multi(self):
         """Translate images using StarGAN trained on multiple datasets."""
