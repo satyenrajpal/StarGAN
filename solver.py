@@ -142,10 +142,10 @@ class Solver(object):
         weight = torch.ones(y.size()).to(self.device)
         dydx = torch.autograd.grad(outputs=y,
                                    inputs=x,
-                                   grad_outputs=weight,
-                                   retain_graph=True,
-                                   create_graph=True,
-                                   only_inputs=True)[0]
+                                   # grad_outputs=weight,
+                                   # retain_graph=True,
+                                   create_graph=True)[0]
+                                   # only_inputs=True)[0]
 
         dydx = dydx.view(dydx.size(0), -1)
         dydx_l2norm = torch.sqrt(torch.sum(dydx**2, dim=1))
@@ -281,8 +281,8 @@ class Solver(object):
                 # =================================================================================== #
                 requires_grad(self.G,False)
                 requires_grad(self.D,True)
-
-                self.reset_grad()
+                self.G.zero_grad()
+                self.D.zero_grad()
                 # Compute loss with real images.
                 out_src, out_cls = self.D(x_real,step,alpha)
                 d_loss_real = -torch.mean(out_src)
@@ -300,10 +300,11 @@ class Solver(object):
                 x_hat = (eps * x_real.data + (1 - eps) * x_fake.data)
                 x_hat = Variable(x_hat,requires_grad=True)
                 out_src, _ = self.D(x_hat,step,alpha) #Take in step as argument
-                d_loss_gp = self.gradient_penalty(out_src, x_hat)
+                d_loss_gp = self.gradient_penalty(out_src.sum(), x_hat)
                 
                 # Backward and optimize.
                 d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
+                self.reset_grad()
                 d_loss.backward()
                 self.d_optimizer.step()
 
@@ -321,7 +322,8 @@ class Solver(object):
                 if (itr+1) % self.n_critic == 0:
                     requires_grad(self.G,True)
                     requires_grad(self.D,False)
-
+                    self.G.zero_grad()
+                    self.D.zero_grad()
                     # Original-to-target domain.
                     x_fake = self.G(x_real, c_trg,step,alpha) 
                     out_src, out_cls = self.D(x_fake,step,alpha) 
