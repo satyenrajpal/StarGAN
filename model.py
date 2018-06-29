@@ -131,7 +131,7 @@ class Discriminator(nn.Module):
         q=int(np.log2(image_size))
         
         #filters->256(32^2),128(64^2),64(128^2) ...
-        # nF=[256//2**(i-p) for i in range(p,q+1)] 
+        nF=[256//2**(i-p) for i in range(p,q+1)] 
         self.from_rgb=nn.ModuleList([nn.Conv2d(3,i,kernel_size=3,padding=1) for i in nF])
         # self.from_rgb=nn.ModuleList([nn.Conv2d(3,256,kernel_size=3,padding=1),
         #     nn.Conv2d(3,128,kernel_size=3,padding=1),
