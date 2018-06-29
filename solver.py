@@ -143,7 +143,7 @@ class Solver(object):
         dydx = torch.autograd.grad(outputs=y,
                                    inputs=x,
                                    # grad_outputs=weight,
-                                   # retain_graph=True,
+                                   retain_graph=True,
                                    create_graph=True)[0]
                                    # only_inputs=True)[0]
 
@@ -304,8 +304,8 @@ class Solver(object):
                 
                 # Backward and optimize.
                 d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-                self.reset_grad()
-                d_loss.backward()
+                # self.reset_grad()
+                d_loss.backward(retain_graph=True)
                 self.d_optimizer.step()
 
                 # Logging.
@@ -338,7 +338,7 @@ class Solver(object):
 
                     # Backward and optimize.
                     g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
-                    self.reset_grad()
+                    # self.reset_grad()
                     g_loss.backward()
                     self.g_optimizer.step()
 
