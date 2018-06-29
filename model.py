@@ -138,7 +138,7 @@ class Discriminator(nn.Module):
         #     nn.Conv2d(3,64,kernel_size=3,padding=1)])
 
         # Downsampling layers (for higher resolutions) 
-        self.progressive=nn.ModuleList([ConvBlock(nF[i+1],nF[i]) for i in range(len(nF)-1)])
+        self.progressive=nn.ModuleList([ConvBlock(nF[i],nF[i-1]) for i in range(len(nF)-1,0,-1)])
         # self.progressive=nn.ModuleList([ConvBlock(64,128),  #128^2 -> 64^2
                                         # ConvBlock(128,256)])#64^2 -> 32^2 
 
