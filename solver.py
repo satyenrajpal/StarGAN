@@ -570,7 +570,7 @@ class Solver(object):
                 print('Saved real and fake images into {}...'.format(result_path))
                 sys.exit()
 
-    def interpolation(self,src_latent,trgt_latent,interp_path=os.getcwd(),num=5,idx=0,curr_i=0):
+    def interpolation(self,src_latent,trgt_latent,interp_path=os.getcwd(),num=10,idx=0,curr_i=0):
         """ Generate 'num' interpolated images b/w src and target"""
         all_imgs=[]
         for i in range(num+1):
