@@ -282,6 +282,7 @@ class Solver(object):
                 requires_grad(self.G,False)
                 requires_grad(self.D,True)
 
+                self.reset_grad()
                 # Compute loss with real images.
                 out_src, out_cls = self.D(x_real,step,alpha)
                 d_loss_real = -torch.mean(out_src)
@@ -303,7 +304,6 @@ class Solver(object):
                 
                 # Backward and optimize.
                 d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-                self.reset_grad()
                 d_loss.backward()
                 self.d_optimizer.step()
 
