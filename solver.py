@@ -203,7 +203,13 @@ class Solver(object):
         print('Start training...')
         start_time = time.time()
         fade_in=False
-        
+
+        #Conditions for different steps       
+        step_iters=[self.num_steps//2]
+        for _ in range(1,self.num_steps):
+            step_iters.append(self.num_steps)
+        step_iters.append(self.num_steps*2)
+
         for step in range(self.num_steps+1):
             #Change batch size according to image size
             if step in [0,1,2]:
@@ -230,18 +236,18 @@ class Solver(object):
             c_fixed_list = self.create_labels(c_org_fixed, self.c_dim, self.dataset, self.selected_attrs)
 
             #Conditions for different steps
-            if step==0 and step!=self.num_steps:
-                step_iters=self.num_iters//2
-            elif step==self.num_steps:
-                step_iters=self.num_iters*2
-            else:
-                step_iters=self.num_iters
+            # if step==0 and step!=self.num_steps:
+            #     step_iters=self.num_iters//2
+            # elif step==self.num_steps:
+            #     step_iters=self.num_iters*2
+            # else:
+            #     step_iters=self.num_iters
             
             # Learning rate cache for decaying.
             g_lr = self.g_lr
             d_lr = self.d_lr
             
-            for itr in range(step_iters):
+            for itr in range(step_iters[step]):
             
                 # Fade_in only for half the steps when moving on to the next step
                 fade_in=(step!=0) and itr<step_iters//2
@@ -359,8 +365,9 @@ class Solver(object):
                     print(log)
 
                     if self.use_tensorboard:
+                        log_steps=itr+1 if step==0 else step*step_iters[step-1]+itr+1                            
                         for tag, value in loss.items():
-                            self.logger.scalar_summary(tag, value, itr+1)
+                            self.logger.scalar_summary(tag, value, log_steps)
 
                 # Translate fixed images for debugging.
                 if (itr+1) % self.sample_step == 0:
