@@ -206,10 +206,10 @@ class Solver(object):
         fade_in=False
 
         #Conditions for different steps       
-        step_iters=[self.num_steps//2]
+        step_iters=[self.num_iters//2]
         for _ in range(1,self.num_steps):
-            step_iters.append(self.num_steps)
-        step_iters.append(self.num_steps*2)
+            step_iters.append(self.num_iters)
+        step_iters.append(self.num_iters*2)
 
         for step in range(self.start_step,self.num_steps+1):
             #Change batch size according to image size
