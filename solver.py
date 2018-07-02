@@ -53,7 +53,7 @@ class Solver(object):
         self.beta2 = config.beta2
         self.resume_iters = config.resume_iters
         self.selected_attrs = config.selected_attrs
-        self.num_steps=int(math.log2(config.image_size)-5)
+        self.num_steps=int(math.log2(config.image_size)-5) #2^5 = 32
         
         # Test configurations.
         self.test_iters = config.test_iters
@@ -210,7 +210,7 @@ class Solver(object):
             step_iters.append(self.num_steps)
         step_iters.append(self.num_steps*2)
 
-        for step in range(self.num_steps+1):
+        for step in range(self.start_steps,self.num_steps+1):
             #Change batch size according to image size
             if step in [0,1,2]:
                 batch_size=self.batch_size # 32^2, 64^2, 128^2
@@ -430,7 +430,7 @@ class Solver(object):
         print('Start training...')
         start_time = time.time()
         for i in range(start_iters, self.num_iters):
-            for dataset in ['CelebA', 'RaFD']:
+            for dataset in ['CelebA', 'RaFD']: #Iterating between the two
 
                 # =================================================================================== #
                 #                             1. Preprocess input data                                #
