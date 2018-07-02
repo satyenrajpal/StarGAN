@@ -251,9 +251,9 @@ class Solver(object):
             for itr in range(start_iters,step_iters[step]):
             
                 # Fade_in only for half the steps when moving on to the next step
-                fade_in=(step!=0) and itr<step_iters//2
+                fade_in=(step!=0) and itr<step_iters[step]
                 # Weight for fading in only for half the step_iters
-                alpha=-1 if not fade_in else min(1,(itr/(step_iters//2))) 
+                alpha=-1 if not fade_in else min(1,(itr/(step_iters[step]//2))) 
             
                 # =================================================================================== #
                 #                             1. Preprocess input data                                #
@@ -360,7 +360,7 @@ class Solver(object):
                 if (itr+1) % self.log_step == 0:
                     et = time.time() - start_time
                     et = str(datetime.timedelta(seconds=et))[:-7]
-                    log = "Elapsed [{}], Iteration [{}/{}], Step {}".format(et, itr+1, step_iters,step)
+                    log = "Elapsed [{}], Iteration [{}/{}], Step {}".format(et, itr+1, step_iters[step],step)
                     for tag, value in loss.items():
                         log += ", {}: {:.4f}".format(tag, value)
                     print(log)
