@@ -107,11 +107,11 @@ class Solver(object):
         print(name)
         print("The number of parameters: {}".format(num_params))
 
-    def restore_model(self, resume_iters):
+    def restore_model(self, step,resume_iters):
         """Restore the trained generator and discriminator."""
         print('Loading the trained models from step {}...'.format(resume_iters))
-        G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
-        D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
+        G_path = os.path.join(self.model_restore_dir, '{}-{}-G.ckpt'.format(step,resume_iters))
+        D_path = os.path.join(self.model_restore_dir, '{}-{}-D.ckpt'.format(step,resume_iters))
         self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
         self.D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
 
@@ -196,9 +196,9 @@ class Solver(object):
         
         # Start training from scratch or resume training.
         # start_iters = 0
-        # if self.resume_iters:
-        #     start_iters = self.resume_iters
-        #     self.restore_model(self.resume_iters)
+        if self.resume_iters:
+            start_iters = self.resume_iters
+            self.restore_model(self.start_step,self.resume_iters)
 
         print('Start training...')
         start_time = time.time()
@@ -210,7 +210,7 @@ class Solver(object):
             step_iters.append(self.num_steps)
         step_iters.append(self.num_steps*2)
 
-        for step in range(self.start_steps,self.num_steps+1):
+        for step in range(self.start_step,self.num_steps+1):
             #Change batch size according to image size
             if step in [0,1,2]:
                 batch_size=self.batch_size # 32^2, 64^2, 128^2
@@ -247,7 +247,7 @@ class Solver(object):
             g_lr = self.g_lr
             d_lr = self.d_lr
             
-            for itr in range(step_iters[step]):
+            for itr in range(start_steps,step_iters[step]):
             
                 # Fade_in only for half the steps when moving on to the next step
                 fade_in=(step!=0) and itr<step_iters//2
