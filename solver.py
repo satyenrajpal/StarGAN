@@ -54,6 +54,7 @@ class Solver(object):
         self.resume_iters = config.resume_iters
         self.selected_attrs = config.selected_attrs
         self.num_steps=int(math.log2(config.image_size)-5) #2^5 = 32
+        self.start_step=config.start_step
         
         # Test configurations.
         self.test_iters = config.test_iters
@@ -68,7 +69,7 @@ class Solver(object):
         # Directories.
         self.log_dir = config.log_dir
         self.sample_dir = config.sample_dir
-        self.model_save_dir = config.model_save_dir
+        self.model_restore_dir = config.model_restore_dir
         self.result_dir = config.result_dir
 
         # Step size.
@@ -247,7 +248,7 @@ class Solver(object):
             g_lr = self.g_lr
             d_lr = self.d_lr
             
-            for itr in range(start_steps,step_iters[step]):
+            for itr in range(start_iters,step_iters[step]):
             
                 # Fade_in only for half the steps when moving on to the next step
                 fade_in=(step!=0) and itr<step_iters//2
