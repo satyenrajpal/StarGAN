@@ -9,6 +9,7 @@ import os
 import time
 import datetime
 import sys
+from misc import score
 
 class Solver(object):
     """Solver for training and testing StarGAN."""
@@ -69,6 +70,8 @@ class Solver(object):
         self.build_model()
         if self.use_tensorboard:
             self.build_tensorboard()
+
+        p=score(config,self.G) #Add functionality to load pretrained inception network!
 
     def build_model(self):
         """Create a generator and a discriminator."""

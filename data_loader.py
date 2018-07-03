@@ -21,8 +21,8 @@ class CelebA(data.Dataset):
         self.test_dataset = []
         self.attr2idx = {}
         self.idx2attr = {}
+        self.discard_labels=['5_o_Clock_Shadow','Blurry','Double_Chin','Narrow_Eyes','No_Beard','Oval_Face','Wavy_Hair','Bangs']
         self.preprocess()
-
         if mode == 'train':
             self.num_images = len(self.train_dataset)
         else:
@@ -44,15 +44,19 @@ class CelebA(data.Dataset):
             filename = split[0]
             values = split[1:]
 
-            label = []
-            for attr_name in self.selected_attrs:
+            nSel_labels,sel_labels = [],[]
+            for attr_name in all_attr_names:
                 idx = self.attr2idx[attr_name]
-                label.append(values[idx] == '1')
+                if attr_name in self.selected_attrs:
+                    sel_labels.append(values[idx] == '1')
+                elif attr_name not in self.discard_labels:
+                    nSel_labels.append(values[idx]== '1')
+            all_labels=sel_labels+nSel_labels
 
             if (i+1) < 2000:
-                self.test_dataset.append([filename, label])
+                self.test_dataset.append([filename, all_labels])
             else:
-                self.train_dataset.append([filename, label])
+                self.train_dataset.append([filename, sel_labels])
 
         print('Finished preprocessing the CelebA dataset...')
 
