@@ -22,7 +22,7 @@ class InceptionNet():
         
         self.save_incDir=config.inc_net_dir
         self.pretrained_incNet=config.pretrained_incNet
-        
+        self.dataset=config.dataset
         self.test_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
                                     config.selected_attrs,image_size=self.image_size,num_workers=config.num_workers,
                                     dataset=config.dataset,mode='test')
@@ -48,7 +48,7 @@ class InceptionNet():
 
     def train(self,config):
         train_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
-                                config.selected_attrs,image_size=image_size,
+                                config.selected_attrs,image_size=self.image_size,
                                 num_workers=config.num_workers,dataset=config.dataset)
         
         print('Start Training...')
@@ -124,11 +124,11 @@ class InceptionNet():
                     else:
                         flipped[i,j]=random.randint(0,1)
         return flipped
-    
-    def transform_op(self):
+
+    def transform_op(self,image_size):
         transform=[]
         transform.append(T.ToPILImage())
-        transform.append(T.Resize(299))
+        transform.append(T.Resize(image_size))
         transform.append(T.ToTensor())
         transform.append(T.Normalize(mean=(0.5,0.5,0.5),std=(0.5,0.5,0.5)))
         return T.Compose(transform)
@@ -137,17 +137,16 @@ class InceptionNet():
         
         #Inception net
         self.load_pretrained()
-        
-        len_sel_labels=len(self.selected_attrs)
 
         if config.dataset=='CelebA':
             hair_color_indices=[]
-            for i,attr_name in enumerate(config.selected_attrs):
+            for i,attr_name in enumerate(self.selected_attrs):
                 if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
                     hair_color_indices.append(i)
         
         mean_,steps=0,2
-
+        transform=self.transform_op(self.image_size)
+        
         Gen.to(device)
         sigmoid=nn.Sigmoid()
         data_iter=iter(test_dataset)
@@ -162,7 +161,7 @@ class InceptionNet():
                     img,all_labels=next(data_iter) #label is a boolean labelled vector
                 
                 #randomly flip  
-                flipped_labels=self.flip_labels(all_labels,config.selected_attrs,config.dataset,hair_color_indices)
+                flipped_labels=self.flip_labels(all_labels,self.selected_attrs,self.dataset,hair_color_indices)
                 
                 img=img.to(device)
                 flipped_labels=flipped_labels.to(device)
@@ -171,7 +170,7 @@ class InceptionNet():
                 x_gen=torch.stack([transform(pop.detach().cpu()) for pop in x_gen])
                 x_gen=x_gen.to(device)
 
-                pred_x_gen=sigmoid(inc_net(x_gen))
+                pred_x_gen=sigmoid(self.inc_net(x_gen))
                 bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
                 mean_+=torch.mean(torch.sum(bCE,1)).cpu().item() 
                 print(mean_)
