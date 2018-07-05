@@ -126,7 +126,7 @@ def score(config,Gen, train=False):
             if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
                 hair_color_indices.append(i)
     Gen.to(device)
-    
+
     mean_,steps=0,2
     print("Calculating score...")
     for i in range(steps):
@@ -141,8 +141,8 @@ def score(config,Gen, train=False):
         flipped_labels=flip_labels(all_labels,config.selected_attrs,config.dataset,hair_color_indices)
         print("Labels flipped")
         
-        img.to(device)
-        flipped_labels.to(device)
+        img=img.to(device)
+        flipped_labels=flipped_labels.to(device)
         #Obtain probabilities of Generated samples!
 
         x_gen=Gen(img,flipped_labels)
