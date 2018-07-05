@@ -57,15 +57,17 @@ def train_inc(config,device,inc_net):
                     for i,data in enumerate(test_dataset):
                         img_test,label_test=data
                         label_test=label_test[:,:len(config.selected_attrs)]
+                        
                         img_test=img_test.to(device)
                         label_test=label_test.to(device)
+                        
                         pred=inc_net(img_test)
                         pred_label=pred>0.5
-                        #or test_label=torch.round(pred)
                         pred_label=pred_label.type(torch.FloatTensor).to(device)
-                        acc+=torch.mean(torch.eq(label_test,pred_label).type(torch.FloatTensor).to(device)).data[0]
+                        acc+=torch.mean(torch.eq(label_test,pred_label).type(torch.FloatTensor).to(device)).item()
+                
                 acc/=len(test_dataset)
-                print("Test Accuracy: ", acc.data[0])
+                print("Test Accuracy: ", acc.item())
                 if acc>max_acc:
                     torch.save(inc_net.state_dict(),path)
                     max_acc=acc
@@ -143,7 +145,7 @@ def score(config,Gen, train=False):
             #randomly flip  
             print("Label flipping")
             flipped_labels=flip_labels(all_labels,config.selected_attrs,config.dataset,hair_color_indices)
-            print("Labels flipped")
+            print("Labels flipped",flipped_labels)
             
             img=img.to(device)
             flipped_labels=flipped_labels.to(device)
