@@ -51,8 +51,7 @@ class Solver(object):
 
         # Miscellaneous.
         self.use_tensorboard = config.use_tensorboard
-        self.device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-        print("USING DEVICE: ", self.device)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         # Directories.
         self.log_dir = config.log_dir
@@ -74,7 +73,7 @@ class Solver(object):
         p=score(config,self.G) #Add functionality to load pretrained inception network!
         print("Score: ", p)
         sys.exit()
-        
+
     def build_model(self):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD']:
@@ -86,9 +85,8 @@ class Solver(object):
 
         self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
         self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
-        self.print_network(self.G, 'G')
-        self.print_network(self.D, 'D')
-            
+        # self.print_network(self.G, 'G')
+        # self.print_network(self.D, 'D')
         self.G.to(self.device)
         self.D.to(self.device)
 
