@@ -59,7 +59,6 @@ def train_inc(config,device,inc_net):
                         label_test=label_test[:,:len(config.selected_attrs)]
                         pred=inc_net(img_test)
                         pred_label=pred>0.5
-                        # sys.exit()
                         #or test_label=torch.round(pred)
                         acc+=torch.mean(torch.eq(label_test,pred_label.type(torch.FloatTensor)).type(torch.FloatTensor))
                 acc/=len(test_dataset)
@@ -110,6 +109,7 @@ def score(config,Gen, train=False):
     test_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
         config.selected_attrs,image_size=config.image_size,num_workers=config.num_workers,
         dataset=config.dataset,batch_size=config.batch_size,mode='test')
+    
     transform=[]
     transform.append(T.ToPILImage())
     transform.append(T.Resize(299))
@@ -139,13 +139,16 @@ def score(config,Gen, train=False):
         print("Label flipping")
         flipped_labels=flip_labels(all_labels,config.selected_attrs,config.dataset,hair_color_indices)
         print("Labels flipped")
+        
+        img.to(device)
+        flipped_labels.to(device)
         #Obtain probabilities of Generated samples!
+
         x_gen=Gen(img,flipped_labels)
-        stck=[]
-        for pop in x_gen:
-            stck.append(transform(pop))
-        x_gen=torch.stack(stck)
+        
+        x_gen=torch.stack([transform(pop) for pop in x_gen])
         print(x_gen.size())
+
         pred_x_gen=inc_net(x_gen)
         bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
         mean_+=torch.mean(torch.sum(bCE,1)) #Can be mean!!!???
