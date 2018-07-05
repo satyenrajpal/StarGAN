@@ -3,7 +3,7 @@ import argparse
 from solver import Solver
 from data_loader import get_loader
 from torch.backends import cudnn
-
+from misc import InceptionNet
 
 def str2bool(v):
     return v.lower() in ('true')
@@ -56,7 +56,14 @@ def main(config):
             solver.test()
         elif config.dataset in ['Both']:
             solver.test_multi()
-
+    elif config.mode=='calc_score':
+        incNet=InceptionNet(config)
+        if train_inc:
+            incNet.train()
+        else:
+            solver.restore_model(config.resume_iters)
+            score=incNet.score(solver.G)
+            print("Score: ",score)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -94,10 +101,11 @@ if __name__ == '__main__':
 
     # Miscellaneous.
     parser.add_argument('--num_workers', type=int, default=4)
-    parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
+    parser.add_argument('--mode', type=str, default='train', choices=['train', 'test','calc_score'])
     parser.add_argument('--use_tensorboard', type=str2bool, default=True)
     parser.add_argument('--train_inc',type=str2bool,default=False)
     parser.add_argument('--pretrained_incNet',type=str,default=None)
+    parser.add_argument('--save_incDir',type=str,default=None)
     # Directories.
     parser.add_argument('--celeba_image_dir', type=str, default='../CelebA_nocrop/img_celeba')
     parser.add_argument('--attr_path', type=str, default='../celebA/Anno/list_attr_celeba.txt')
