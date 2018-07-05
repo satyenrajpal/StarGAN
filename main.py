@@ -58,7 +58,7 @@ def main(config):
             solver.test_multi()
     elif config.mode=='calc_score':
         incNet=InceptionNet(config)
-        if train_inc:
+        if config.train_inc:
             incNet.train()
         else:
             solver.restore_model(config.resume_iters)
