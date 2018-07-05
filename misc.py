@@ -87,13 +87,13 @@ class InceptionNet():
                 img_test,label_test=data
                 label_test=label_test[:,:len(self.selected_attrs)]
                 
-                img_test=img_test.to(device)
-                label_test=label_test.to(device)
+                img_test=img_test.to(self.device)
+                label_test=label_test.to(self.device)
                 
                 pred=self.inc_net(img_test)
                 pred_label=pred>0.5
-                pred_label=pred_label.type(torch.FloatTensor).to(device)
-                acc+=torch.mean(torch.eq(label_test,pred_label).type(torch.FloatTensor).to(device)).item()
+                pred_label=pred_label.type(torch.FloatTensor).to(self.device)
+                acc+=torch.mean(torch.eq(label_test,pred_label).type(torch.FloatTensor).to(self.device)).item()
         
         acc/=len(self.test_dataset)
         return acc
