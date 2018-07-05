@@ -38,8 +38,8 @@ def train_inc(config,device,inc_net):
     for p in range(100):
         for i,data in enumerate(train_dataset):
             img, label = data
-            img.to(device)
-            label.to(device)
+            img=img.to(device)
+            label=label.to(device)
             batch_pred = inc_net(img)
             loss=classification_loss(batch_pred,label,config.dataset)
             opt.zero_grad()
@@ -57,6 +57,8 @@ def train_inc(config,device,inc_net):
                     for i,data in enumerate(test_dataset):
                         img_test,label_test=data
                         label_test=label_test[:,:len(config.selected_attrs)]
+                        img_test=img_test.to(device)
+                        label_test=label_test.to(device)
                         pred=inc_net(img_test)
                         pred_label=pred>0.5
                         #or test_label=torch.round(pred)
@@ -158,7 +160,7 @@ def score(config,Gen, train=False):
             print("Predicion Size: ",pred_x_gen.size())
             print("Prediction:", pred_x_gen.data)
             bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
-            mean_+=torch.mean(torch.sum(bCE,1)).cpu().data[0] #Can be mean!!!???
+            mean_+=torch.mean(torch.sum(bCE,1)).cpu().data[0] 
             print(mean_)
     return mean_/steps
                     

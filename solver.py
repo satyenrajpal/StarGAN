@@ -70,7 +70,7 @@ class Solver(object):
         if self.use_tensorboard:
             self.build_tensorboard()
 
-        p=score(config,self.G) #Add functionality to load pretrained inception network!
+        p=score(config,self.G,train=True) #Add functionality to load pretrained inception network!
         print("Score: ", p)
         sys.exit()
 
