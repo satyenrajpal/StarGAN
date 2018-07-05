@@ -11,7 +11,7 @@ import sys,os
 from torchvision import transforms as T
 
 
-class InceptionNet(nn.Module):
+class InceptionNet():
     def __init__(self,config):
         self.image_size=299
         self.lr=0.0001
