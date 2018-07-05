@@ -62,7 +62,8 @@ def train_inc(config,device,inc_net):
                         pred=inc_net(img_test)
                         pred_label=pred>0.5
                         #or test_label=torch.round(pred)
-                        acc+=torch.mean(torch.eq(label_test,pred_label.type(torch.FloatTensor)).type(torch.FloatTensor))
+                        pred_label=pred_label.type(torch.FloatTensor).to(device)
+                        acc+=torch.mean(torch.eq(label_test,pred_label).type(torch.FloatTensor).to(device)).data[0]
                 acc/=len(test_dataset)
                 print("Test Accuracy: ", acc.data[0])
                 if acc>max_acc:
