@@ -62,9 +62,9 @@ class InceptionNet():
                 
                 batch_pred = self.inc_net(img)
                 loss=self.classification_loss(batch_pred,label,config.dataset)
-                opt.zero_grad()
+                self.opt.zero_grad()
                 loss.backward()
-                opt.step()
+                self.opt.step()
                 
                 if i%log_step==0:
                     et=time.time()-start_time
