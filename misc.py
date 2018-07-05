@@ -148,9 +148,11 @@ def score(config,Gen, train=False):
 
             x_gen=Gen(img,flipped_labels)
             
-            x_gen=torch.stack([transform(pop.detach()) for pop in x_gen])
+            x_gen=torch.stack([transform(pop.detach().cpu()) for pop in x_gen])
             print(x_gen.size())
 
+            x_gen=x_gen.to(device)
+            
             pred_x_gen=inc_net(x_gen)
             bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
             mean_+=torch.mean(torch.sum(bCE,1)) #Can be mean!!!???
