@@ -129,7 +129,6 @@ def score(config,Gen, train=False):
     mean_,steps=0,2
     print("Calculating score...")
     for i in range(steps):
-        
         try:
             img, all_labels=next(data_iter)
         except:

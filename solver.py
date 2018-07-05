@@ -72,7 +72,9 @@ class Solver(object):
             self.build_tensorboard()
 
         p=score(config,self.G) #Add functionality to load pretrained inception network!
-
+        print("Score: ", p)
+        sys.exit()
+        
     def build_model(self):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD']:
