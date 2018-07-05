@@ -77,7 +77,7 @@ class InceptionNet():
                         torch.save(self.inc_net.state_dict(),path)
                         max_acc=acc
                     
-                    log = "Elapsed [{}], Iteration [{}/{}] , loss [{}], max_acc[{}]".format(et, i+1,epochs,loss.item(),max_acc)
+                    log = "Elapsed [{}], Epoch[{}] - Iteration [{}/{}] , loss [{}], max_acc[{}]".format(et, p,i+1,len(train_dataset),loss.item(),max_acc)
                     print(log)
                     
     def test(self):
