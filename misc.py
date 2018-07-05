@@ -17,7 +17,7 @@ class InceptionNet(nn.Module):
         self.lr=0.0001
         self.log_step=100
         self.selected_attrs=config.selected_attrs
-        self.device=torch.device('cuda' is torch.cuda.is_available() else 'cpu')
+        self.device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.buildIncNet()
         
         self.save_incDir=config.save_incDir
@@ -166,7 +166,6 @@ class InceptionNet(nn.Module):
                 
                 img=img.to(device)
                 flipped_labels=flipped_labels.to(device)
-                
 
                 x_gen=Gen(img,flipped_labels)
                 x_gen=torch.stack([transform(pop.detach().cpu()) for pop in x_gen])
