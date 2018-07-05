@@ -13,7 +13,7 @@ from torchvision import transforms as T
 
 class InceptionNet():
     def __init__(self,config):
-        self.image_size=299
+        self.image_size=299 #Inception net condition
         self.lr=0.0001
         self.log_step=100
         self.selected_attrs=config.selected_attrs
@@ -66,7 +66,7 @@ class InceptionNet():
                 loss.backward()
                 self.opt.step()
                 
-                if i%log_step==0:
+                if i%self.log_step==0:
                     et=time.time()-start_time
                     et = str(datetime.timedelta(seconds=et))[:-7]
                     
