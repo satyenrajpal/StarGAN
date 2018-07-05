@@ -7,7 +7,7 @@ import logger
 import time,datetime
 import random
 import torch.nn.functional as F
-import sys
+import sys,os
 from torchvision import transforms as T
 
 def classification_loss(logit, target, dataset='CelebA'):
