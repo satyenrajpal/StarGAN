@@ -29,7 +29,7 @@ class InceptionNet():
     
     def buildIncNet(self):
         self.inc_net=inception_v3(pretrained=False, num_classes=len(self.selected_attrs),aux_logits=False)
-        self.opt=torch.optim.Adam(inc_net.parameters(),self.lr,[0.5,0.999])
+        self.opt=torch.optim.Adam(self.inc_net.parameters(),self.lr,[0.5,0.999])
         self.inc_net.to(self.device)
 
     def load_pretrained(self):
