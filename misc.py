@@ -20,7 +20,7 @@ class InceptionNet():
         self.device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.buildIncNet()
         
-        self.save_incDir=config.save_incDir
+        self.save_incDir=config.inc_net_dir
         self.pretrained_incNet=config.pretrained_incNet
         
         self.test_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
