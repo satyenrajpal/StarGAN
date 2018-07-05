@@ -35,7 +35,8 @@ def train_inc(config,device,inc_net):
     print('Start training...')
     start_time=time.time()
     max_acc=0
-    for p in range(50000):
+    iters=50000
+    for p in range(iters):
         for i,data in enumerate(train_dataset):
             img, label = data
             img=img.to(device)
@@ -50,7 +51,7 @@ def train_inc(config,device,inc_net):
             if i%log_step==0:
                 et=time.time()-start_time
                 et = str(datetime.timedelta(seconds=et))[:-7]
-                log = "Elapsed [{}], Iteration [{}/{}] , loss [{}], max_acc[{}]".format(et, i+1,p,loss.item(),max_acc)
+                log = "Elapsed [{}], Iteration [{}/{}] , loss [{}], max_acc[{}]".format(et, i+1,iters,loss.item(),max_acc)
                 print(log)
 
                 acc=0
@@ -68,11 +69,11 @@ def train_inc(config,device,inc_net):
                         acc+=torch.mean(torch.eq(label_test,pred_label).type(torch.FloatTensor).to(device)).item()
                 
                 acc/=len(test_dataset)
-                print("Test Accuracy: ", acc.item())
-                if acc.item()>max_acc:
+                print("Test Accuracy: ", acc)
+                if acc>max_acc:
                     path=os.path.join(config.inc_net_dir,'{}-incNet.ckpt'.format(i))
                     torch.save(inc_net.state_dict(),path)
-                    max_acc=acc.item()
+                    max_acc=acc
 
 
 def flip_labels(labels,selected_attrs,dataset,hair_color_indices=None):
