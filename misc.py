@@ -73,7 +73,7 @@ class InceptionNet():
                     acc=self.test()
                     print("Test Accuracy: ", acc)
                     if acc>max_acc:
-                        path=os.path.join(self.inc_net_dir,'{}-{}-incNet.ckpt'.format(p,i))
+                        path=os.path.join(self.save_incDir,'{}-{}-incNet.ckpt'.format(p,i))
                         torch.save(self.inc_net.state_dict(),path)
                         max_acc=acc
                     
