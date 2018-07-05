@@ -46,7 +46,7 @@ class InceptionNet():
         elif dataset == 'RaFD':
             return F.cross_entropy(logit, target)
 
-    def train(self):
+    def train(self,config):
         train_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
                                 config.selected_attrs,image_size=image_size,
                                 num_workers=config.num_workers,dataset=config.dataset)

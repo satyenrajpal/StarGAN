@@ -59,7 +59,7 @@ def main(config):
     elif config.mode=='calc_score':
         incNet=InceptionNet(config)
         if config.train_inc:
-            incNet.train()
+            incNet.train(config)
         else:
             solver.restore_model(config.resume_iters)
             score=incNet.score(solver.G)
