@@ -107,7 +107,7 @@ def score(config,Gen, train=False):
     inc_net=inception_v3(pretrained=False, num_classes=len(config.selected_attrs),aux_logits=False)
     device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    if not train and config.pretrained_incNet is not None:
+    if config.pretrained_incNet is not None:
         inc_net.load_state_dict(torch.load(config.pretrained_incNet, map_location=lambda storage, loc: storage))
     else:
         sys.exit("Pretrained path not valid")
@@ -152,9 +152,7 @@ def score(config,Gen, train=False):
                 img,all_labels=next(data_iter) #label is a boolean labelled vector
             
             #randomly flip  
-            print("Label flipping")
             flipped_labels=flip_labels(all_labels,config.selected_attrs,config.dataset,hair_color_indices)
-            print("Labels flipped",flipped_labels)
             
             img=img.to(device)
             flipped_labels=flipped_labels.to(device)
