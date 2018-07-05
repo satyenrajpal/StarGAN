@@ -158,7 +158,7 @@ def score(config,Gen, train=False):
             print("Predicion Size: ",pred_x_gen.size())
             print("Prediction:", pred_x_gen.data)
             bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
-            mean_+=torch.mean(torch.mean(bCE,1)).cpu().data[0] #Can be mean!!!???
+            mean_+=torch.mean(torch.sum(bCE,1)).cpu().data[0] #Can be mean!!!???
             print(mean_)
     return mean_/steps
                     
