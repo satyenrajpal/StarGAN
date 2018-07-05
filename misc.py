@@ -129,30 +129,31 @@ def score(config,Gen, train=False):
 
     mean_,steps=0,2
     print("Calculating score...")
-    for i in range(steps):
-        try:
-            img, all_labels=next(data_iter)
-        except:
-            data_iter=iter(data_iter)
-            img,all_labels=next(data_iter) #label is a boolean labelled vector
-        
-        #randomly flip  
-        print("Label flipping")
-        flipped_labels=flip_labels(all_labels,config.selected_attrs,config.dataset,hair_color_indices)
-        print("Labels flipped")
-        
-        img=img.to(device)
-        flipped_labels=flipped_labels.to(device)
-        #Obtain probabilities of Generated samples!
+    with torch.no_grad():
+        for i in range(steps):
+            try:
+                img, all_labels=next(data_iter)
+            except:
+                data_iter=iter(data_iter)
+                img,all_labels=next(data_iter) #label is a boolean labelled vector
+            
+            #randomly flip  
+            print("Label flipping")
+            flipped_labels=flip_labels(all_labels,config.selected_attrs,config.dataset,hair_color_indices)
+            print("Labels flipped")
+            
+            img=img.to(device)
+            flipped_labels=flipped_labels.to(device)
+            #Obtain probabilities of Generated samples!
 
-        x_gen=Gen(img,flipped_labels)
-        
-        x_gen=torch.stack([transform(pop) for pop in x_gen])
-        print(x_gen.size())
+            x_gen=Gen(img,flipped_labels)
+            
+            x_gen=torch.stack([transform(pop.detach()) for pop in x_gen])
+            print(x_gen.size())
 
-        pred_x_gen=inc_net(x_gen)
-        bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
-        mean_+=torch.mean(torch.sum(bCE,1)) #Can be mean!!!???
+            pred_x_gen=inc_net(x_gen)
+            bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
+            mean_+=torch.mean(torch.sum(bCE,1)) #Can be mean!!!???
 
     return mean_/steps
                     
