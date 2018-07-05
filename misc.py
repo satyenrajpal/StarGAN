@@ -125,7 +125,8 @@ def score(config,Gen, train=False):
         for i,attr_name in enumerate(config.selected_attrs):
             if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
                 hair_color_indices.append(i)
-
+    Gen.to(device)
+    
     mean_,steps=0,2
     print("Calculating score...")
     for i in range(steps):
