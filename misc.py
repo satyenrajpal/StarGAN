@@ -177,63 +177,6 @@ class InceptionNet():
         
         return mean_/steps
                     
-# def train_inc(config,device,inc_net):
-#     #Inception network is trained to classify all attributes!!!
-#     image_size=299 #According to inception network
-#     lr=0.0001
-#     log_step=100
-#     opt=torch.optim.Adam(inc_net.parameters(),lr,[0.5,0.999])
-
-#     train_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
-#         config.selected_attrs,image_size=image_size,num_workers=config.num_workers,
-#         dataset=config.dataset)
-
-#     test_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
-#     config.selected_attrs,image_size=image_size,num_workers=config.num_workers,
-#     dataset=config.dataset,mode='test')
-
-#     print('Start training...')
-#     start_time=time.time()
-#     max_acc=0
-#     iters=50
-#     for p in range(iters):
-#         for i,data in enumerate(train_dataset):
-#             img, label = data
-#             img=img.to(device)
-#             label=label.to(device)
-            
-#             batch_pred = inc_net(img)
-#             loss=classification_loss(batch_pred,label,config.dataset)
-#             opt.zero_grad()
-#             loss.backward()
-#             opt.step()
-            
-#             if i%log_step==0:
-#                 et=time.time()-start_time
-#                 et = str(datetime.timedelta(seconds=et))[:-7]
-#                 log = "Elapsed [{}], Iteration [{}/{}] , loss [{}], max_acc[{}]".format(et, i+1,iters,loss.item(),max_acc)
-#                 print(log)
-
-#                 acc=0
-#                 with torch.no_grad():
-#                     for _,data in enumerate(test_dataset):
-#                         img_test,label_test=data
-#                         label_test=label_test[:,:len(config.selected_attrs)]
-                        
-#                         img_test=img_test.to(device)
-#                         label_test=label_test.to(device)
-                        
-#                         pred=inc_net(img_test)
-#                         pred_label=pred>0.5
-#                         pred_label=pred_label.type(torch.FloatTensor).to(device)
-#                         acc+=torch.mean(torch.eq(label_test,pred_label).type(torch.FloatTensor).to(device)).item()
-                
-#                 acc/=len(test_dataset)
-#                 print("Test Accuracy: ", acc)
-#                 if acc>max_acc:
-#                     path=os.path.join(config.inc_net_dir,'{}-{}-incNet.ckpt'.format(p,i))
-#                     torch.save(inc_net.state_dict(),path)
-#                     max_acc=acc
 
 
 
