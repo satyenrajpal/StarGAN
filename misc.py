@@ -109,8 +109,7 @@ def score(config,Gen, train=False):
     
     if config.pretrained_incNet is not None:
         inc_net.load_state_dict(torch.load(config.pretrained_incNet, map_location=lambda storage, loc: storage))
-    else:
-        sys.exit("Pretrained path not valid")
+
     inc_net.to(device)
         
     if train:
