@@ -155,8 +155,8 @@ def score(config,Gen, train=False):
             
             pred_x_gen=inc_net(x_gen)
             bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
-            mean_+=torch.mean(torch.sum(bCE,1)) #Can be mean!!!???
-
+            mean_+=torch.mean(torch.mean(bCE,1)) #Can be mean!!!???
+            print(mean)
     return mean_/steps
                     
 
