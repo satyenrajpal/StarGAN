@@ -96,7 +96,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
     parser.add_argument('--use_tensorboard', type=str2bool, default=True)
-
+    parser.add_argument('--train_inc',type=str2bool,default=False)
+    parser.add_argument('--pretrained_incNet',type=str,default=None)
     # Directories.
     parser.add_argument('--celeba_image_dir', type=str, default='../CelebA_nocrop/img_celeba')
     parser.add_argument('--attr_path', type=str, default='../celebA/Anno/list_attr_celeba.txt')

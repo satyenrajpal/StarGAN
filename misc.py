@@ -106,8 +106,13 @@ def score(config,Gen, train=False):
     #Inception net
     inc_net=inception_v3(pretrained=False, num_classes=len(config.selected_attrs),aux_logits=False)
     device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    inc_net.to(device)
     
+    if not train and config.pretrained_incNet is not None:
+        inc_net.load_state_dict(torch.load(config.pretrained_incNet, map_location=lambda storage, loc: storage))
+    else:
+        sys.exit("Pretrained path not valid")
+    inc_net.to(device)
+        
     if train:
         print("Training Inception network...")
         train_inc(config,device,inc_net)
@@ -156,16 +161,10 @@ def score(config,Gen, train=False):
             #Obtain probabilities of Generated samples!
 
             x_gen=Gen(img,flipped_labels)
-            
             x_gen=torch.stack([transform(pop.detach().cpu()) for pop in x_gen])
-            print(x_gen.size())
-
             x_gen=x_gen.to(device)
-            
-            pred_x_gen=sigmoid(inc_net(x_gen))
 
-            print("Predicion Size: ",pred_x_gen.size())
-            print("Prediction:", pred_x_gen.data)
+            pred_x_gen=sigmoid(inc_net(x_gen))
             bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
             mean_+=torch.mean(torch.sum(bCE,1)).cpu().data[0] 
             print(mean_)
