@@ -126,7 +126,7 @@ def score(config,Gen, train=False):
             if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
                 hair_color_indices.append(i)
     Gen.to(device)
-
+    sigmoid=nn.Sigmoid()
     mean_,steps=0,2
     print("Calculating score...")
     with torch.no_grad():
@@ -153,7 +153,7 @@ def score(config,Gen, train=False):
 
             x_gen=x_gen.to(device)
             
-            pred_x_gen=nn.Sigmoid(inc_net(x_gen))
+            pred_x_gen=sigmoid(inc_net(x_gen))
 
             print("Predicion Size: ",pred_x_gen.size())
             print("Prediction:", pred_x_gen.data)
