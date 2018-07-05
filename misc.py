@@ -21,7 +21,7 @@ def train_inc(config,device,inc_net):
     #Inception network is trained to classify all attributes!!!
     image_size=299 #According to inception network
     lr=0.0001
-    log_step=1
+    log_step=100
     opt=torch.optim.Adam(inc_net.parameters(),lr,[0.5,0.999])
 
     train_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
@@ -35,11 +35,12 @@ def train_inc(config,device,inc_net):
     print('Start training...')
     start_time=time.time()
     max_acc=0
-    for p in range(100):
+    for p in range(50000):
         for i,data in enumerate(train_dataset):
             img, label = data
             img=img.to(device)
             label=label.to(device)
+            
             batch_pred = inc_net(img)
             loss=classification_loss(batch_pred,label,config.dataset)
             opt.zero_grad()
@@ -49,7 +50,7 @@ def train_inc(config,device,inc_net):
             if i%log_step==0:
                 et=time.time()-start_time
                 et = str(datetime.timedelta(seconds=et))[:-7]
-                log = "Elapsed [{}], Iteration [{}/{}] , loss [{}]".format(et, i+1,p,loss.item())
+                log = "Elapsed [{}], Iteration [{}/{}] , loss [{}], max_acc[{}]".format(et, i+1,p,loss.item(),max_acc)
                 print(log)
 
                 acc=0
@@ -68,9 +69,10 @@ def train_inc(config,device,inc_net):
                 
                 acc/=len(test_dataset)
                 print("Test Accuracy: ", acc.item())
-                if acc>max_acc:
+                if acc.item()>max_acc:
+                    path=os.path.join(config.inc_net_dir,'{}-incNet.ckpt'.format(i))
                     torch.save(inc_net.state_dict(),path)
-                    max_acc=acc
+                    max_acc=acc.item()
 
 
 def flip_labels(labels,selected_attrs,dataset,hair_color_indices=None):
@@ -130,10 +132,12 @@ def score(config,Gen, train=False):
         for i,attr_name in enumerate(config.selected_attrs):
             if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
                 hair_color_indices.append(i)
+    
     Gen.to(device)
     sigmoid=nn.Sigmoid()
     mean_,steps=0,2
     print("Calculating score...")
+
     with torch.no_grad():
         for i in range(steps):
             try:

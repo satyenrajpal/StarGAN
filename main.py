@@ -11,7 +11,12 @@ def str2bool(v):
 def main(config):
     # For fast training.
     cudnn.benchmark = True
-
+    config.log_dir=os.path.join(config.save_dir,'logs')
+    config.model_save_dir=os.path.join(config.save_dir,'models')
+    config.sample_dir=os.path.join(config.save_dir,'samples')
+    config.result_dir=os.path.join(config.save_dir,'results')
+    config.inc_net_dir=os.path.join(config.save_dir,'IncNet')
+    
     # Create directories if not exist.
     if not os.path.exists(config.log_dir):
         os.makedirs(config.log_dir)
@@ -21,7 +26,9 @@ def main(config):
         os.makedirs(config.sample_dir)
     if not os.path.exists(config.result_dir):
         os.makedirs(config.result_dir)
-
+    if not os.path.exists(config.inc_net_dir):
+        os.makedirs(config.inc_net_dir)
+        
     # Data loader.
     celeba_loader = None
     rafd_loader = None
@@ -94,10 +101,10 @@ if __name__ == '__main__':
     parser.add_argument('--celeba_image_dir', type=str, default='../CelebA_nocrop/img_celeba')
     parser.add_argument('--attr_path', type=str, default='../celebA/Anno/list_attr_celeba.txt')
     parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
-    parser.add_argument('--log_dir', type=str, default='stargan/logs')
-    parser.add_argument('--model_save_dir', type=str, default='stargan/models')
-    parser.add_argument('--sample_dir', type=str, default='stargan/samples')
-    parser.add_argument('--result_dir', type=str, default='stargan/results')
+    parser.add_argument('--save_dir', type=str, default='stargan')
+    # parser.add_argument('--log_dir', type=str, default='stargan/logs')
+    # parser.add_argument('--sample_dir', type=str, default='stargan/samples')
+    # parser.add_argument('--result_dir', type=str, default='stargan/results')
 
     # Step size.
     parser.add_argument('--log_step', type=int, default=10)
