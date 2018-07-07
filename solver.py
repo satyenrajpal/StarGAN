@@ -71,7 +71,8 @@ class Solver(object):
         self.sample_dir = config.sample_dir
         self.model_restore_dir = config.model_restore_dir
         self.result_dir = config.result_dir
-
+        self.model_save_dir=config.model_save_dir
+        
         # Step size.
         self.log_step = config.log_step
         self.sample_step = config.sample_step
@@ -482,6 +483,7 @@ class Solver(object):
 
                 # Compute loss with real images.
                 out_src, out_cls = self.D(x_real)
+                #IMPORTANT
                 out_cls = out_cls[:, :self.c_dim] if dataset == 'CelebA' else out_cls[:, self.c_dim:]
                 d_loss_real = - torch.mean(out_src)
                 d_loss_cls = self.classification_loss(out_cls, label_org, dataset)
