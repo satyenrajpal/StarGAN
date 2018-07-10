@@ -123,7 +123,7 @@ class Generator(nn.Module):
 
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
-    def __init__(self, image_size=128, c_dim=5, steps=2, ini_res=32):
+    def __init__(self, image_size=128, c_dim=5, ini_res=32):
         super(Discriminator, self).__init__()
         
         

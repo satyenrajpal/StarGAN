@@ -31,6 +31,7 @@ def main(config):
     celeba_args = None
     rafd_args = None
     celebaHQ_args= None
+    affectNet_args=None
 
     if config.dataset in ['CelebA', 'Both']:
         celeba_args = {'dataset':config.dataset,
@@ -50,7 +51,7 @@ def main(config):
         'mode': config.mode,
         'num_workers': config.num_workers}
     
-    if config.dataset in ['CelebA-HQ']:
+    if config.dataset in ['CelebA-HQ','HQ']:
         celebaHQ_args={'dataset': config.dataset,
         'h5_path':config.h5_path,
         'selected_attrs':config.selected_attrs,
@@ -59,9 +60,17 @@ def main(config):
         'hq_attr_path':config.hq_attr_path,
         'attr_path':config.attr_path}
     
+    if config.dataset in ['AffectNet','HQ']:
+        affectNet_args={'dataset':config.dataset,
+        'selected_attrs':config.selected_attrs,
+        'mode':config.mode,
+        'num_workers':config.num_workers,
+        'img_dir':config.affectNet_dir,
+        'aNet_labels':config.aNet_labels}
     
     # Solver for training and testing StarGAN.
-    solver = Solver(celeba_args, rafd_args,celebaHQ_args, config)
+    solver = Solver(config,celeba_args=celeba_args, rafd_args=rafd_args,
+        celebaHQ_args=celebaHQ_args,affectNet_args=affectNet_args)
 
     if config.mode == 'train':
         if config.dataset in ['CelebA', 'RaFD','CelebA-HQ']:
@@ -71,7 +80,7 @@ def main(config):
     elif config.mode == 'test':
         if config.dataset in ['CelebA', 'RaFD']:
             solver.test()
-        elif config.dataset in ['Both']:
+        elif config.dataset in ['Both','HQ']:
             solver.test_multi()
 
 
@@ -92,7 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
     
     # Training configuration.
-    parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both','CelebA-HQ'])
+    parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both','CelebA-HQ','AffectNet','HQ'])
     parser.add_argument('--batch_size', type=int, default=16, help='mini-batch size')
     parser.add_argument('--num_iters', type=int, default=100000, help='number of total iterations for training D')
     parser.add_argument('--num_iters_decay', type=int, default=50000, help='number of iterations for decaying lr')
@@ -115,17 +124,21 @@ if __name__ == '__main__':
     parser.add_argument('--use_tensorboard', type=str2bool, default=True)
 
     # Directories.
+    #       CelebA
     parser.add_argument('--celeba_image_dir', type=str, default='../CelebA_nocrop/img_celeba')
     parser.add_argument('--attr_path', type=str, default='../CelebA_nocrop/list_attr_celeba.txt')
-    parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
-    parser.add_argument('--save_dir', type=str, default='hq')
-    parser.add_argument('--model_restore_dir',type=str,default='hq/models')
-    # parser.add_argument('--model_save_dir', type=str, default='stargan/models')
-    # parser.add_argument('--sample_dir', type=str, default='stargan/samples')
-    # parser.add_argument('--result_dir', type=str, default='stargan/results')
+    #       CelebA-HQ
     parser.add_argument('--h5_path', type=str, default='../CelebA-HQ/celebaHQ')
     parser.add_argument('--hq_attr_path', type=str, default='../CelebA-HQ/image_list.txt')
-
+    #       AffectNet
+    parser.add_argument('--affectNet_dir',type=str,default='../affectNet')
+    parser.add_argument('--aNet_labels',type=str,default='../affectNet/processed_labels_train.txt')
+    #       RaFD
+    parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
+    
+    parser.add_argument('--save_dir', type=str, default='hq')
+    parser.add_argument('--model_restore_dir',type=str,default='hq/models')
+    
     # Step size.
     parser.add_argument('--log_step', type=int, default=100)
     parser.add_argument('--sample_step', type=int, default=1000)

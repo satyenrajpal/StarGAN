@@ -7,7 +7,9 @@ import os
 import random
 import numpy as np
 import sys
-import h5py
+import h5py,csv
+from pathlib import Path
+
 class CelebA(data.Dataset):
     """Dataset class for the CelebA dataset."""
 
@@ -148,6 +150,69 @@ class CelebA_HQ(data.Dataset):
     def __len__(self):
         return self.num_images
 
+class AffectNet(data.Dataset):
+    def __init__(self,affectNet_dir,pre_labels_file,mode='train',transform=None):
+        self.attrs=['neutral','happy','sad','surprise','fear','disgust','anger','contempt','none','uncertain','non-face']
+        # self.attr2idx={i:p for i,p in enumerate(self.attrs)}
+        # self.idx2attr={p:i for i,p in enumerate(self.attrs)}
+        self.dir=affectNet_dir
+        self.img_dir=os.path.join(self.dir,'Manually_Annotated_Images')
+
+        self.train_dataset=[]
+        self.test_dataset=[]
+        self.mode=mode
+        
+        file_=Path(pre_labels_file)
+        try:
+            abs_path=file_.resolve()
+        except FileNotFoundError:
+            self.preprocess()
+        else:
+            self.createDataset(abs_path)
+        self.transform=transform
+        self.num_images=len(self.train_dataset) if mode=='train' else len(self.test_dataset)
+
+    @staticmethod
+    def getSize(filename):
+        return Image.open(filename).size[0]
+    
+    def createDataset(self,file_):
+        print("Retrieving data from {}".format(file_))
+        lines=[line.rstrip() for line in open(os.path.join(self.dir,'training.csv'),'r')]
+        for line in lines:
+            parts=line.split()
+            if len(self.test_dataset)<5000:
+                self.test_dataset.append([parts[0],int(parts[1])])
+            else:
+                self.train_dataset.append(parts[0],int(parts[1]))
+                                          
+    def preprocess(self):
+        preprocessed_file=os.path.join(self.dir,'processed_labels_train.txt')
+        lines = [line.rstrip() for line in open('training.csv', 'r')]
+        print("Creating Preprocessed data file {}".format(preprocessed_file))
+        lines=lines[1:] #Remove titles
+        
+        with open(preprocessed_file,'w') as file_:
+            for i,line in enumerate(lines):
+                line=line.split(',')
+                filename=line[0]
+                label=line[6]
+                if self.getSize(os.path.join(self.img_dir,filename))>=512 and int(label)<8:
+                    file_.write('{} {} \n'.format(filename,label))
+                if i%1000==0:
+                    print("Processed {} images so far".format(i))
+   
+    def __getitem__(self,index):
+        dataset=self.train_dataset if self.mode=='train' else self.test_dataset
+        filename,label=dataset[index]
+        image=Image.open(os.path.join(self.img_dir,filename))
+        if self.transform is not None:
+            return self.transform(image), torch.FloatTensor(label)
+        
+    def __len__(self):
+        self.num_images
+
+
 def get_loader(dict_,step=0,batch_size=16):
     """Build and return a data loader."""
     transform = []
@@ -157,6 +222,7 @@ def get_loader(dict_,step=0,batch_size=16):
         transform.append(T.RandomHorizontalFlip())
     if dict_['dataset'] == 'CelebA' or dict_['dataset'] == 'RaFD':
         transform.append(T.CenterCrop(dict_['crop_size']))
+    if dict_['dataset']!='CelebA-HQ':
         transform.append(T.Resize(int(2**(5+step)))) #32 -> 64 -> 128...
     transform.append(T.ToTensor())
     transform.append(T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
@@ -167,11 +233,17 @@ def get_loader(dict_,step=0,batch_size=16):
     elif dict_['dataset'] == 'RaFD':
         dataset = ImageFolder(dict_['img_dir'], transform)
     elif dict_['dataset'] == 'CelebA-HQ':
-        dataset = CelebA_HQ(dict_['h5_path'],dict_['hq_attr_path'],
-            dict_['attr_path'],dict_['selected_attrs'],transform,dict_['mode'],step)
+        dataset = CelebA_HQ(dict_['h5_path'],dict_['hq_attr_path'], dict_['attr_path'],dict_['selected_attrs'],transform,dict_['mode'],step)
+    elif dict_['dataset'] == 'AffectNet':
+        dataset=AffectNet(dict_['img_dir'],dict_['aNet_labels'],mode=dict_['mode'],transform=transform)
 
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
                                   shuffle=(dict_['mode']=='train'),
                                   num_workers=dict_['num_workers'])
     return data_loader
+
+
+
+
+
