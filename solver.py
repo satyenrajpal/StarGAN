@@ -489,8 +489,6 @@ class Solver(object):
                         c_org = torch.cat([c_org,zero_aNet,mask_celeba],dim=1)
                         c_trg = torch.cat([c_trg,zero_aNet,mask_celeba],dim=1)
                     elif dataset == 'AffectNet':
-                        print("Label org Shape: ", label_org.size())
-                        print("label data: ", label_org.data)
                         label_org = self.label2onehot(label_org, self.c2_dim).to(self.device)
                         label_trg = self.label2onehot(label_trg, self.c2_dim).to(self.device)
                         c_org = torch.cat([zero_celeba, label_org, mask_aNet],dim=1)
