@@ -64,7 +64,7 @@ def main(config):
         affectNet_args={'dataset':config.dataset,
         'selected_attrs':config.selected_attrs,
         'mode':config.mode,
-        'num_workers':1,
+        'num_workers':4,
         'img_dir':config.affectNet_dir,
         'aNet_labels':config.aNet_labels}
     

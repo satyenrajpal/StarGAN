@@ -487,16 +487,16 @@ class Solver(object):
                     elif dataset == 'AffectNet':
                         print("Label org Shape: ", label_org.size())
                         print("label data: ", label_org.data)
-                        label_org = self.label2onehot(label_org, self.c2_dim)
-                        label_trg = self.label2onehot(label_trg, self.c2_dim)
+                        label_org = self.label2onehot(label_org, self.c2_dim).to(self.device)
+                        label_trg = self.label2onehot(label_trg, self.c2_dim).to(self.device)
                         c_org = torch.cat([zero_celeba, label_org, mask_aNet],dim=1)
                         c_trg = torch.cat([zero_celeba, label_trg, mask_aNet],dim=1)
 
                     x_real = x_real.to(self.device)           # Input images.
                     c_org = c_org.to(self.device)             # Original domain labels.
                     c_trg = c_trg.to(self.device)             # Target domain labels.
-                    label_org = label_org.to(self.device)     # Labels for computing classification loss.
-                    label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
+                    # label_org = label_org.to(self.device)     # Labels for computing classification loss.
+                    # label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
 
                     # =================================================================================== #
                     #                             2. Train the discriminator                              #
