@@ -479,6 +479,10 @@ class Solver(object):
                     rand_idx = torch.randperm(label_org.size(0))
                     label_trg = label_org[rand_idx]
 
+                    x_real = x_real.to(self.device)           # Input images.
+                    label_org = label_org.to(self.device)     # Labels for computing classification loss.
+                    label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
+
                     if dataset == 'CelebA-HQ':
                         c_org = label_org.clone()
                         c_trg = label_trg.clone()
@@ -492,12 +496,9 @@ class Solver(object):
                         c_org = torch.cat([zero_celeba, label_org, mask_aNet],dim=1)
                         c_trg = torch.cat([zero_celeba, label_trg, mask_aNet],dim=1)
 
-                    x_real = x_real.to(self.device)           # Input images.
                     c_org = c_org.to(self.device)             # Original domain labels.
                     c_trg = c_trg.to(self.device)             # Target domain labels.
-                    # label_org = label_org.to(self.device)     # Labels for computing classification loss.
-                    # label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
-
+                    
                     # =================================================================================== #
                     #                             2. Train the discriminator                              #
                     # =================================================================================== #
