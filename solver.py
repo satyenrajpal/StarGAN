@@ -486,13 +486,17 @@ class Solver(object):
                     if dataset == 'CelebA-HQ':
                         c_org = label_org.clone()
                         c_trg = label_trg.clone()
-                        c_org = torch.cat([c_org,zero_aNet,mask_celeba],dim=1)
-                        c_trg = torch.cat([c_trg,zero_aNet,mask_celeba],dim=1)
+                        zero = torch.zeros(x_real.size(0),self.c2_dim).to(self.device)
+                        mask = self.label2onehot(torch.zeros(x_real.size(0),2)).to(self.device)
+                        c_org = torch.cat([c_org,zero,mask],dim=1)
+                        c_trg = torch.cat([c_trg,zero,mask],dim=1)
                     elif dataset == 'AffectNet':
                         label_org = self.label2onehot(label_org, self.c2_dim).to(self.device)
                         label_trg = self.label2onehot(label_trg, self.c2_dim).to(self.device)
-                        c_org = torch.cat([zero_celeba, label_org, mask_aNet],dim=1)
-                        c_trg = torch.cat([zero_celeba, label_trg, mask_aNet],dim=1)
+                        zero = torch.zeros(x_real.size(0),self.c_dim).to(self.device)
+                        mask = self.label2onehot(torch.ones(x_real.size(0)),2).to(self.device)
+                        c_org = torch.cat([zero, label_org, mask],dim=1)
+                        c_trg = torch.cat([zero, label_trg, mask],dim=1)
 
                     c_org = c_org.to(self.device)             # Original domain labels.
                     c_trg = c_trg.to(self.device)             # Target domain labels.
