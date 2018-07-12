@@ -237,15 +237,7 @@ class Solver(object):
             x_fixed, c_org_fixed = next(data_iter)
             x_fixed = x_fixed.to(self.device)
             c_fixed_list = self.create_labels(c_org_fixed, self.c_dim, self.dataset, self.selected_attrs)
-
-            #Conditions for different steps
-            # if step==0 and step!=self.num_steps:
-            #     step_iters=self.num_iters//2
-            # elif step==self.num_steps:
-            #     step_iters=self.num_iters*2
-            # else:
-            #     step_iters=self.num_iters
-            
+           
             # Learning rate cache for decaying.
             g_lr = self.g_lr
             d_lr = self.d_lr
@@ -625,7 +617,6 @@ class Solver(object):
                     print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
             start_iters=0
     
-
     def train_multi(self):
         """Train StarGAN with multiple datasets."""        
         # Data iterators.

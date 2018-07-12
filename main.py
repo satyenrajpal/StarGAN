@@ -131,8 +131,8 @@ if __name__ == '__main__':
     parser.add_argument('--h5_path', type=str, default='../CelebA-HQ/celebaHQ')
     parser.add_argument('--hq_attr_path', type=str, default='../CelebA-HQ/image_list.txt')
     #       AffectNet
-    parser.add_argument('--affectNet_dir',type=str,default='../affectNet')
-    parser.add_argument('--aNet_labels',type=str,default='../affectNet/processed_labels_train.txt')
+    parser.add_argument('--affectNet_dir',type=str,default='affectNet')
+    parser.add_argument('--aNet_labels',type=str,default='affectNet/processed_labels_train.txt')
     #       RaFD
     parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
     

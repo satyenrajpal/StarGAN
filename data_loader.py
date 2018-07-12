@@ -151,24 +151,17 @@ class CelebA_HQ(data.Dataset):
         return self.num_images
 
 class AffectNet(data.Dataset):
-    def __init__(self,affectNet_dir,pre_labels_file,mode='train',transform=None):
+    def __init__(self,affectNet_dir,pre_labels_file=None,mode='train',transform=None):
         self.attrs=['neutral','happy','sad','surprise','fear','disgust','anger','contempt','none','uncertain','non-face']
-        # self.attr2idx={i:p for i,p in enumerate(self.attrs)}
-        # self.idx2attr={p:i for i,p in enumerate(self.attrs)}
         self.dir=affectNet_dir
         self.img_dir=os.path.join(self.dir,'Manually_Annotated_Images')
 
         self.train_dataset=[]
         self.test_dataset=[]
         self.mode=mode
-        
-        file_=Path(pre_labels_file)
-        try:
-            abs_path=file_.resolve()
-        except FileNotFoundError:
-            self.preprocess()
-        else:
-            self.createDataset(abs_path)
+        if pre_labels_file is None:
+            pre_labels_file=self.preprocess()
+        self.createDataset(pre_labels_file)
         self.transform=transform
         self.num_images=len(self.train_dataset) if mode=='train' else len(self.test_dataset)
 
@@ -178,30 +171,44 @@ class AffectNet(data.Dataset):
     
     def createDataset(self,file_):
         print("Retrieving data from {}".format(file_))
-        lines=[line.rstrip() for line in open(os.path.join(self.dir,'training.csv'),'r')]
+        lines=[line.rstrip() for line in open(file_,'r')]
         for line in lines:
             parts=line.split()
-            if len(self.test_dataset)<5000:
+            if len(self.test_dataset)<3000:
                 self.test_dataset.append([parts[0],int(parts[1])])
             else:
                 self.train_dataset.append(parts[0],int(parts[1]))
+        print("Finished Retrieving data...")
                                           
     def preprocess(self):
-        preprocessed_file=os.path.join(self.dir,'processed_labels_train.txt')
-        lines = [line.rstrip() for line in open('training.csv', 'r')]
-        print("Creating Preprocessed data file {}".format(preprocessed_file))
+
+        train_preprocessed_file=os.path.join(self.dir,'processed_labels_train.txt')
+        lines = [line.rstrip() for line in open(os.path.join(self.dir,'training.csv'), 'r')]
+        # val_preprocessed_file=os.path.join(self.dir,'processed_labels_val.txt')
+        # val_lines = [line.rstrip() for line in open(os.path.join(self.dir,'validation.csv'), 'r')]        
+        # print("Creating Preprocessed data file {} and {}".format(train_preprocessed_file, val_preprocessed_file))
+        print("Creating Preprocessed data file {}".format(train_preprocessed_file))
+                
+        # for file,lines in [(train_preprocessed_file,train_lines),(val_preprocessed_file,val_lines)]:
         lines=lines[1:] #Remove titles
-        
-        with open(preprocessed_file,'w') as file_:
+        start = 0
+        with open(train_preprocessed_file,'a') as file_:
             for i,line in enumerate(lines):
-                line=line.split(',')
-                filename=line[0]
-                label=line[6]
-                if self.getSize(os.path.join(self.img_dir,filename))>=512 and int(label)<8:
-                    file_.write('{} {} \n'.format(filename,label))
+                if i>start:
+                    line=line.split(',')
+                    filename=line[0]
+                    label=line[6]
+                    try:                        
+                        if  self.getSize(os.path.join(self.img_dir,filename))>=512 and int(label)<8:
+                            file_.write('{} {} \n'.format(filename,label))
+                    except:
+                        pass
                 if i%1000==0:
                     print("Processed {} images so far".format(i))
-   
+        print("Finished processing. ")
+        return train_preprocessed_file
+    
+
     def __getitem__(self,index):
         dataset=self.train_dataset if self.mode=='train' else self.test_dataset
         filename,label=dataset[index]
@@ -235,7 +242,7 @@ def get_loader(dict_,step=0,batch_size=16):
     elif dict_['dataset'] == 'CelebA-HQ':
         dataset = CelebA_HQ(dict_['h5_path'],dict_['hq_attr_path'], dict_['attr_path'],dict_['selected_attrs'],transform,dict_['mode'],step)
     elif dict_['dataset'] == 'AffectNet':
-        dataset=AffectNet(dict_['img_dir'],dict_['aNet_labels'],mode=dict_['mode'],transform=transform)
+        dataset=AffectNet(dict_['img_dir'],pre_labels_file=dict_['aNet_labels'],mode=dict_['mode'],transform=transform)
 
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
