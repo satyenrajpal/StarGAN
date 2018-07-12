@@ -592,7 +592,7 @@ class Solver(object):
                         with torch.no_grad():
                             x_fake_list = [x_fixed]
                             
-                            for c_fixed in c_fixed_list:
+                            for c_fixed in c_celeba_list:
                                 c_trg=torch.cat([c_fixed,zero_aNet,mask_celeba],dim=1)
                                 x_fake_list.append(self.G(x_fixed, c_trg,step,alpha))
 
