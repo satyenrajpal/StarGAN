@@ -487,7 +487,7 @@ class Solver(object):
                         c_org = label_org.clone()
                         c_trg = label_trg.clone()
                         zero = torch.zeros(x_real.size(0),self.c2_dim).to(self.device)
-                        mask = self.label2onehot(torch.zeros(x_real.size(0),2)).to(self.device)
+                        mask = self.label2onehot(torch.zeros(x_real.size(0)),2).to(self.device)
                         c_org = torch.cat([c_org,zero,mask],dim=1)
                         c_trg = torch.cat([c_trg,zero,mask],dim=1)
                     elif dataset == 'AffectNet':
