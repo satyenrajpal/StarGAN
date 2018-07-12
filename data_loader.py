@@ -63,6 +63,7 @@ class CelebA(data.Dataset):
         dataset = self.train_dataset if self.mode == 'train' else self.test_dataset
         filename, label = dataset[index]
         image = Image.open(os.path.join(self.image_dir, filename))
+
         if self.transform is not None:
             return self.transform(image), torch.FloatTensor(label)
         else:
@@ -177,8 +178,8 @@ class AffectNet(data.Dataset):
             if len(self.test_dataset)<3000:
                 self.test_dataset.append([parts[0],int(parts[1])])
             else:
-                self.train_dataset.append(parts[0],int(parts[1]))
-        print("Finished Retrieving data...")
+                self.train_dataset.append([parts[0],int(parts[1])])
+        print("Finished Retrieving data. Length of dataset - {}".format(len(self.train_dataset)))
                                           
     def preprocess(self):
 
@@ -199,7 +200,7 @@ class AffectNet(data.Dataset):
                     filename=line[0]
                     label=line[6]
                     try:                        
-                        if  self.getSize(os.path.join(self.img_dir,filename))>=512 and int(label)<8:
+                        if self.getSize(os.path.join(self.img_dir,filename))>=512 and int(label)<8:
                             file_.write('{} {} \n'.format(filename,label))
                     except:
                         pass
@@ -210,38 +211,52 @@ class AffectNet(data.Dataset):
     
 
     def __getitem__(self,index):
+        l=torch.zeros([1])
         dataset=self.train_dataset if self.mode=='train' else self.test_dataset
         filename,label=dataset[index]
         image=Image.open(os.path.join(self.img_dir,filename))
+        if filename.endswith(".png"):
+            image=image.convert("RGB")
+        # print("Image size: ",np.array(image).shape)
+        # print("Label : ",label)
         if self.transform is not None:
-            return self.transform(image), torch.FloatTensor(label)
+            # return self.transform(image), torch.FloatTensor(label)
+            p=self.transform(image)
+            l[0]=label
+            # print("Transformed Image: ", p.size())
+            # print("Label org:", label)
+            # print("Label: ", l.size())
+            # print("Label data: ", l)
+            return p,l
+        else:
+            return np.array(image), torch.FloatTensor(label)
         
     def __len__(self):
-        self.num_images
+        return self.num_images
 
 
-def get_loader(dict_,step=0,batch_size=16):
+def get_loader(dataset,dict_,step=0,batch_size=16):
     """Build and return a data loader."""
     transform = []
-    if dict_['dataset'] == 'CelebA-HQ':
+    if dataset == 'CelebA-HQ':
         transform.append(T.ToPILImage()) #Convert to PIL to perform operations
     if dict_['mode'] == 'train':
         transform.append(T.RandomHorizontalFlip())
-    if dict_['dataset'] == 'CelebA' or dict_['dataset'] == 'RaFD':
+    if dataset == 'CelebA' or dict_['dataset'] == 'RaFD':
         transform.append(T.CenterCrop(dict_['crop_size']))
-    if dict_['dataset']!='CelebA-HQ':
+    if dataset!='CelebA-HQ':
         transform.append(T.Resize(int(2**(5+step)))) #32 -> 64 -> 128...
     transform.append(T.ToTensor())
     transform.append(T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
     transform = T.Compose(transform)
     
-    if dict_['dataset'] == 'CelebA':
+    if dataset == 'CelebA':
         dataset = CelebA(dict_['img_dir'], dict_['attr_path'], dict_['selected_attrs'], transform, dict_['mode'])
-    elif dict_['dataset'] == 'RaFD':
+    elif dataset == 'RaFD':
         dataset = ImageFolder(dict_['img_dir'], transform)
-    elif dict_['dataset'] == 'CelebA-HQ':
+    elif dataset == 'CelebA-HQ':
         dataset = CelebA_HQ(dict_['h5_path'],dict_['hq_attr_path'], dict_['attr_path'],dict_['selected_attrs'],transform,dict_['mode'],step)
-    elif dict_['dataset'] == 'AffectNet':
+    elif dataset == 'AffectNet':
         dataset=AffectNet(dict_['img_dir'],pre_labels_file=dict_['aNet_labels'],mode=dict_['mode'],transform=transform)
 
     data_loader = data.DataLoader(dataset=dataset,

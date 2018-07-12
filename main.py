@@ -64,7 +64,7 @@ def main(config):
         affectNet_args={'dataset':config.dataset,
         'selected_attrs':config.selected_attrs,
         'mode':config.mode,
-        'num_workers':config.num_workers,
+        'num_workers':1,
         'img_dir':config.affectNet_dir,
         'aNet_labels':config.aNet_labels}
     
@@ -77,6 +77,8 @@ def main(config):
             solver.train()
         elif config.dataset in ['Both']:
             solver.train_multi()
+        elif config.dataset in ['HQ']:
+            solver.train_multi_pro()
     elif config.mode == 'test':
         if config.dataset in ['CelebA', 'RaFD']:
             solver.test()
@@ -88,7 +90,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model configuration.
-    parser.add_argument('--c_dim', type=int, default=5, help='dimension of domain labels (1st dataset)')
+    parser.add_argument('--c_dim', type=int, default=8, help='dimension of domain labels (1st dataset)')
     parser.add_argument('--c2_dim', type=int, default=8, help='dimension of domain labels (2nd dataset)')
     parser.add_argument('--celeba_crop_size', type=int, default=178, help='crop size for the CelebA dataset')
     parser.add_argument('--rafd_crop_size', type=int, default=256, help='crop size for the RaFD dataset')
@@ -113,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('--beta2', type=float, default=0.999, help='beta2 for Adam optimizer')
     parser.add_argument('--resume_iters', type=int, default=None, help='resume training from this step')
     parser.add_argument('--selected_attrs', '--list', nargs='+', help='selected attributes for the CelebA dataset',
-                        default=['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young'])
+                        default=['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young','Eyeglasses','Mouth_Slightly_Open','Bangs'])
 
     # Test configuration.
     parser.add_argument('--test_iters', type=int, default=200000, help='test model from this step')

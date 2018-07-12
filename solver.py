@@ -96,8 +96,8 @@ class Solver(object):
 
         self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
         self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
-        self.print_network(self.G, 'G')
-        self.print_network(self.D, 'D')
+        # self.print_network(self.G, 'G')
+        # self.print_network(self.D, 'D')
         self.D.to(self.device)
         self.G.to(self.device)
 
@@ -191,7 +191,7 @@ class Solver(object):
         """Compute binary or softmax cross entropy loss."""
         if dataset == 'CelebA' or 'CelebA-HQ':
             return F.binary_cross_entropy_with_logits(logit, target, size_average=False) / logit.size(0)
-        elif dataset == 'RaFD':
+        elif dataset == 'RaFD' or 'AffectNet':
             return F.cross_entropy(logit, target)
     
     def train(self):
@@ -224,11 +224,11 @@ class Solver(object):
 
             #Get data_loader based on step
             if self.dataset=='CelebA':
-                data_loader=get_loader(self.celeba_args,step,batch_size)
+                data_loader=get_loader('CelebA',self.celeba_args,step,batch_size)
             elif self.dataset=='RaFD':
-                data_loader=get_loader(self.rafd_args,step,batch_size)
+                data_loader=get_loader('RaFD',self.rafd_args,step,batch_size)
             elif self.dataset == 'CelebA-HQ':
-                data_loader=get_loader(self.celebaHQ_args,step,batch_size)
+                data_loader=get_loader('CelebA-HQ',self.celebaHQ_args,step,batch_size)
 
             print("Dataset for step {} loaded".format(step))
             
@@ -425,8 +425,8 @@ class Solver(object):
                 batch_size=3 #1024^2
 
             #Get both data_loaders based on step
-            celeba_loader=get_loader(self.celebaHQ_args,step,batch_size)
-            affectNet_loader=get_loader(self.affectNet_args,step,batch_size)
+            celeba_loader=get_loader('CelebA-HQ',self.celebaHQ_args,step,batch_size)
+            affectNet_loader=get_loader('AffectNet',self.affectNet_args,step,batch_size)
             print("Both datasets for step {} loaded".format(step))
             
             # get fixed inputs of this step for debugging
@@ -450,10 +450,11 @@ class Solver(object):
             d_lr = self.d_lr
             
             for itr in range(start_iters,step_iters[step]):
-                for dataset in ['CelebA-HQ','AffectNet']:
-                    data_iter=celeba_iter if dataset=='CelebA-HQ' else affectNet_iter
+                for dataset in ['AffectNet','CelebA-HQ']:
+
                     # Fade_in only for half the steps when moving on to the next step
                     fade_in=(step!=0) and itr<step_iters[step]
+                    
                     # Weight for fading in only for half the step_iters
                     alpha=-1 if not fade_in else min(1,(itr/(step_iters[step]//2))) 
             
@@ -461,162 +462,169 @@ class Solver(object):
                     #                             1. Preprocess input data             #
                     # ================================================================ #
 
+                    data_iter=celeba_iter if dataset=='CelebA-HQ' else affectNet_iter
+
                     #Fetch real images and labels
                     try:
                         x_real, label_org = next(data_iter)
                     except:
-                        data_iter = iter(data_loader)
-                        x_real, label_org = next(data_iter)
-                    
+                        if dataset=='CelebA-HQ':
+                            celeba_iter = iter(celeba_loader)
+                            x_real, label_org = next(celeba_iter)
+                        elif dataset=='AffectNet':
+                            affectNet_iter=iter(affectNet_loader)
+                            x_real, label_org = next(affectNet_iter)
+
                     # Generate target domain labels randomly
                     rand_idx = torch.randperm(label_org.size(0))
                     label_trg = label_org[rand_idx]
 
-                    if self.dataset == 'CelebA' or self.dataset== 'CelebA-HQ':
+                    if dataset == 'CelebA-HQ':
                         c_org = label_org.clone()
                         c_trg = label_trg.clone()
                         c_org = torch.cat([c_org,zero_aNet,mask_celeba],dim=1)
                         c_trg = torch.cat([c_trg,zero_aNet,mask_celeba],dim=1)
-                    elif self.dataset == 'RaFD':
-                        c_org = self.label2onehot(label_org, self.c_dim)
-                        c_trg = self.label2onehot(label_trg, self.c_dim)
-                        c_org = torch.cat([zero_celeba, c_org, mask_aNet],dim=1)
-                        c_trg = torch.cat([zero_celeba, c_trg, mask_aNet],dim=1)
+                    elif dataset == 'AffectNet':
+                        print("Label org Shape: ", label_org.size())
+                        print("label data: ", label_org.data)
+                        label_org = self.label2onehot(label_org, self.c2_dim)
+                        label_trg = self.label2onehot(label_trg, self.c2_dim)
+                        c_org = torch.cat([zero_celeba, label_org, mask_aNet],dim=1)
+                        c_trg = torch.cat([zero_celeba, label_trg, mask_aNet],dim=1)
 
-                x_real = x_real.to(self.device)           # Input images.
-                c_org = c_org.to(self.device)             # Original domain labels.
-                c_trg = c_trg.to(self.device)             # Target domain labels.
-                label_org = label_org.to(self.device)     # Labels for computing classification loss.
-                label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
+                    x_real = x_real.to(self.device)           # Input images.
+                    c_org = c_org.to(self.device)             # Original domain labels.
+                    c_trg = c_trg.to(self.device)             # Target domain labels.
+                    label_org = label_org.to(self.device)     # Labels for computing classification loss.
+                    label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
 
-                # =================================================================================== #
-                #                             2. Train the discriminator                              #
-                # =================================================================================== #
-                requires_grad(self.G,False)
-                requires_grad(self.D,True)
-                self.G.zero_grad()
-                self.D.zero_grad()
-                
-                # Compute loss with real images.
-                out_src, out_cls = self.D(x_real,step,alpha)
-                out_cls = out_cls[:,:self.c_dim] if dataset=='CelebA-HQ' else out_cls[:,self.c_dim:]
-                d_loss_real = -torch.mean(out_src)
-                
-                #Classification loss
-                d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
-                
-                # Compute loss with fake images.
-                x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
-                out_src, out_cls = self.D(x_fake.detach(),step,alpha) #take in step as argument
-                d_loss_fake = torch.mean(out_src)
-                
-                # Compute loss for gradient penalty.
-                eps = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
-                x_hat = (eps * x_real.data + (1 - eps) * x_fake.data)
-                x_hat = Variable(x_hat,requires_grad=True)
-                out_src, _ = self.D(x_hat,step,alpha) #Take in step as argument
-                d_loss_gp = self.gradient_penalty(out_src.sum(), x_hat)
-                
-                # Backward and optimize.
-                d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-                # self.reset_grad()
-                d_loss.backward(retain_graph=True)
-                self.d_optimizer.step()
-
-                # Logging.
-                loss = {}
-                loss['D/loss_real'] = d_loss_real.item()
-                loss['D/loss_fake'] = d_loss_fake.item()
-                loss['D/loss_cls'] = d_loss_cls.item()
-                loss['D/loss_gp'] = d_loss_gp.item()
-
-                # =================================================================================== #
-                #                               3. Train the generator                                #
-                # =================================================================================== #
-                
-                if (itr+1) % self.n_critic == 0:
-                    requires_grad(self.G,True)
-                    requires_grad(self.D,False)
+                    # =================================================================================== #
+                    #                             2. Train the discriminator                              #
+                    # =================================================================================== #
+                    requires_grad(self.G,False)
+                    requires_grad(self.D,True)
                     self.G.zero_grad()
                     self.D.zero_grad()
                     
-                    # Original-to-target domain.
-                    x_fake = self.G(x_real, c_trg,step,alpha) 
-                    out_src, out_cls = self.D(x_fake,step,alpha) 
-                    out_cls=out_cls[:,:self.c_dim] if dataset=='CelebA-HQ' else out_cls[:,self.c_dim:]
-                    g_loss_fake = - torch.mean(out_src)
-
+                    # Compute loss with real images.
+                    out_src, out_cls = self.D(x_real,step,alpha)
+                    out_cls = out_cls[:,:self.c_dim] if dataset=='CelebA-HQ' else out_cls[:,self.c_dim:]
+                    d_loss_real = -torch.mean(out_src)
                     #Classification loss
-                    g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
-
-                    # Target-to-original domain.
-                    x_reconst= self.G(x_fake, c_org,step,alpha) 
-                    g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
-
+                    d_loss_cls = self.classification_loss(out_cls, label_org, dataset=dataset)
+                    
+                    # Compute loss with fake images.
+                    x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
+                    out_src, out_cls = self.D(x_fake.detach(),step,alpha) #take in step as argument
+                    d_loss_fake = torch.mean(out_src)
+                    
+                    # Compute loss for gradient penalty.
+                    eps = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
+                    x_hat = (eps * x_real.data + (1 - eps) * x_fake.data)
+                    x_hat = Variable(x_hat,requires_grad=True)
+                    out_src, _ = self.D(x_hat,step,alpha) #Take in step as argument
+                    d_loss_gp = self.gradient_penalty(out_src.sum(), x_hat)
+                    
                     # Backward and optimize.
-                    g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
+                    d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
                     # self.reset_grad()
-                    g_loss.backward()
-                    self.g_optimizer.step()
+                    d_loss.backward(retain_graph=True)
+                    self.d_optimizer.step()
 
                     # Logging.
-                    loss['G/loss_fake'] = g_loss_fake.item()
-                    loss['G/loss_rec'] = g_loss_rec.item()
-                    loss['G/loss_cls'] = g_loss_cls.item()
-                # =================================================================================== #
-                #                                 4. Miscellaneous                                    #
-                # =================================================================================== #
-                # Print out training information.
-                if (itr+1) % self.log_step == 0:
-                    et = time.time() - start_time
-                    et = str(datetime.timedelta(seconds=et))[:-7]
-                    log = "Elapsed [{}], Iteration [{}/{}], Step {}".format(et, itr+1, step_iters[step],step)
-                    for tag, value in loss.items():
-                        log += ", {}: {:.4f}".format(tag, value)
-                    print(log)
+                    loss = {}
+                    loss['D/loss_real'] = d_loss_real.item()
+                    loss['D/loss_fake'] = d_loss_fake.item()
+                    loss['D/loss_cls'] = d_loss_cls.item()
+                    loss['D/loss_gp'] = d_loss_gp.item()
 
-                    if self.use_tensorboard:
-                        log_steps=itr+1 if step==0 else step*step_iters[step-1]+itr+1                            
+                    # =================================================================================== #
+                    #                               3. Train the generator                                #
+                    # =================================================================================== #
+                    
+                    if (itr+1) % self.n_critic == 0:
+                        requires_grad(self.G,True)
+                        requires_grad(self.D,False)
+                        self.G.zero_grad()
+                        self.D.zero_grad()
+                        
+                        # Original-to-target domain.
+                        x_fake = self.G(x_real, c_trg,step,alpha) 
+                        out_src, out_cls = self.D(x_fake,step,alpha) 
+                        out_cls=out_cls[:,:self.c_dim] if dataset=='CelebA-HQ' else out_cls[:,self.c_dim:]
+                        g_loss_fake = - torch.mean(out_src)
+
+                        #Classification loss
+                        g_loss_cls = self.classification_loss(out_cls, label_trg, dataset)
+
+                        # Target-to-original domain.
+                        x_reconst= self.G(x_fake, c_org,step,alpha) 
+                        g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
+
+                        # Backward and optimize.
+                        g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
+                        # self.reset_grad()
+                        g_loss.backward()
+                        self.g_optimizer.step()
+
+                        # Logging.
+                        loss['G/loss_fake'] = g_loss_fake.item()
+                        loss['G/loss_rec'] = g_loss_rec.item()
+                        loss['G/loss_cls'] = g_loss_cls.item()
+                    # =================================================================================== #
+                    #                                 4. Miscellaneous                                    #
+                    # =================================================================================== #
+                    # Print out training information.
+                    if (itr+1) % self.log_step == 0:
+                        et = time.time() - start_time
+                        et = str(datetime.timedelta(seconds=et))[:-7]
+                        log = "Elapsed [{}], Iteration [{}/{}], Step {}".format(et, itr+1, step_iters[step],step)
                         for tag, value in loss.items():
-                            self.logger.scalar_summary(tag, value, log_steps)
+                            log += ", {}: {:.4f}".format(tag, value)
+                        print(log)
 
-                # Translate fixed images for debugging.
-                if (itr+1) % self.sample_step == 0:
-                    with torch.no_grad():
-                        x_fake_list = [x_fixed]
-                        
-                        for c_fixed in c_fixed_list:
-                            c_trg=torch.cat([c_fixed,zero_aNet,mask_celeba],dim=1)
-                            x_fake_list.append(self.G(x_fixed, c_trg,step,alpha))
-
-                        for c_fixed in c_aNet_list:
-                            c_trg=torch.cat([zero_celeba,c_fixed,mask_aNet],dim=1)
-                            x_fake_list.append(self.G(x_fixed,c_trg,step,alpha))
-                        x_concat = torch.cat(x_fake_list, dim=3)
-                        
                         if self.use_tensorboard:
-                            self.logger.image_summary('step-{}'.format(step),x_concat,itr+1)
-                        
-                        sample_path = os.path.join(self.sample_dir, '{}-{}-images.jpg'.format(step,itr+1))
-                        save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
-                        print('Saved real and fake images into {}...'.format(sample_path))
+                            log_steps=itr+1 if step==0 else step*step_iters[step-1]+itr+1                            
+                            for tag, value in loss.items():
+                                self.logger.scalar_summary(tag, value, log_steps)
 
-                # Save model checkpoints.
-                if (itr+1) % self.model_save_step == 0:
-                    G_path = os.path.join(self.model_save_dir, '{}-{}-G.ckpt'.format(step,itr+1))
-                    D_path = os.path.join(self.model_save_dir, '{}-{}-D.ckpt'.format(step,itr+1))
-                    torch.save(self.G.state_dict(), G_path)
-                    torch.save(self.D.state_dict(), D_path)
-                    print('Saved model checkpoints into {}...'.format(self.model_save_dir))
+                    # Translate fixed images for debugging.
+                    if (itr+1) % self.sample_step == 0:
+                        with torch.no_grad():
+                            x_fake_list = [x_fixed]
+                            
+                            for c_fixed in c_fixed_list:
+                                c_trg=torch.cat([c_fixed,zero_aNet,mask_celeba],dim=1)
+                                x_fake_list.append(self.G(x_fixed, c_trg,step,alpha))
 
-                # Decay learning rates.
-                if (itr+1) % self.lr_update_step == 0 and (itr+1) > self.num_iters_decay and step==self.num_steps:
-                    g_lr -= (self.g_lr / float(self.num_iters_decay))
-                    d_lr -= (self.d_lr / float(self.num_iters_decay))
-                    self.update_lr(g_lr, d_lr)
-                    print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
-            start_iters=0
-    
+                            for c_fixed in c_aNet_list:
+                                c_trg=torch.cat([zero_celeba,c_fixed,mask_aNet],dim=1)
+                                x_fake_list.append(self.G(x_fixed,c_trg,step,alpha))
+                            x_concat = torch.cat(x_fake_list, dim=3)
+                            
+                            if self.use_tensorboard:
+                                self.logger.image_summary('step-{}'.format(step),x_concat,itr+1)
+                            
+                            sample_path = os.path.join(self.sample_dir, '{}-{}-images.jpg'.format(step,itr+1))
+                            save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
+                            print('Saved real and fake images into {}...'.format(sample_path))
+
+                    # Save model checkpoints.
+                    if (itr+1) % self.model_save_step == 0:
+                        G_path = os.path.join(self.model_save_dir, '{}-{}-G.ckpt'.format(step,itr+1))
+                        D_path = os.path.join(self.model_save_dir, '{}-{}-D.ckpt'.format(step,itr+1))
+                        torch.save(self.G.state_dict(), G_path)
+                        torch.save(self.D.state_dict(), D_path)
+                        print('Saved model checkpoints into {}...'.format(self.model_save_dir))
+
+                    # Decay learning rates.
+                    if (itr+1) % self.lr_update_step == 0 and (itr+1) > self.num_iters_decay and step==self.num_steps:
+                        g_lr -= (self.g_lr / float(self.num_iters_decay))
+                        d_lr -= (self.d_lr / float(self.num_iters_decay))
+                        self.update_lr(g_lr, d_lr)
+                        print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
+                start_iters=0
+        
     def train_multi(self):
         """Train StarGAN with multiple datasets."""        
         # Data iterators.
