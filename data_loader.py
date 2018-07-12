@@ -217,16 +217,10 @@ class AffectNet(data.Dataset):
         image=Image.open(os.path.join(self.img_dir,filename))
         if filename.endswith(".png"):
             image=image.convert("RGB")
-        # print("Image size: ",np.array(image).shape)
-        # print("Label : ",label)
         if self.transform is not None:
             # return self.transform(image), torch.FloatTensor(label)
             p=self.transform(image)
             l[0]=label
-            # print("Transformed Image: ", p.size())
-            # print("Label org:", label)
-            # print("Label: ", l.size())
-            # print("Label data: ", l)
             return p,l
         else:
             return np.array(image), torch.FloatTensor(label)
