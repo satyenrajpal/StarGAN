@@ -124,7 +124,7 @@ class Q(nn.Module):
 
         curr_dim=conv_dim
         for _ in range(1,repeat_num):
-            curr_dim=conv_dim*2
+            curr_dim=curr_dim*2
 
         self.conv=nn.Sequential(nn.Conv2d(curr_dim, 128,  kernel_size=1,bias=False),
                                 nn.LeakyReLU(0.01,inplace=True),

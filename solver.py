@@ -16,7 +16,7 @@ class log_gaussian:
         logli=-0.5*(var.mul(2*np.pi)+1e-6).log() - \
               (x-mu).pow(2).div(var.mul(2.0)+1e-6)
 
-        return logli.sum(1).mean(),mul(-1)
+        return logli.sum(1).mean().mul(-1)
 
 class Solver(object):
     """Solver for training and testing StarGAN."""
@@ -40,7 +40,7 @@ class Solver(object):
         self.lambda_rec = config.lambda_rec
         self.lambda_gp = config.lambda_gp
         self.lambda_MI = config.lambda_MI
-        
+
         # Training configurations.
         self.dataset = config.dataset
         self.batch_size = config.batch_size
@@ -180,6 +180,15 @@ class Solver(object):
                 if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
                     hair_color_indices.append(i)
 
+        p = np.linspace(-1,1,c_dim)
+        batch_noise = np.copy(p)
+        for _ in range(c_org.size(0)-1):
+            batch_noise = np.vstack([p,batch_noise])
+        zero = torch.zeros(c_org.size(0)).unsqueeze(1)
+        
+        #Check compatibilty with 'toTensor' transformation
+        batch_noise = torch.FloatTensor(torch.from_numpy(batch_noise).float())
+
         c_trg_list = []
         for i in range(c_dim):
             if dataset == 'CelebA':
@@ -191,10 +200,16 @@ class Solver(object):
                             c_trg[:, j] = 0
                 else:
                     c_trg[:, i] = (c_trg[:, i] == 0)  # Reverse attribute value.
+                
             elif dataset == 'RaFD':
                 c_trg = self.label2onehot(torch.ones(c_org.size(0))*i, c_dim)
+            #Add fixed noise
+            c_trg_1 = torch.cat([c_trg, batch_noise[:,i].unsqueeze(1), zero], dim=1)
+            c_trg_2 = torch.cat([c_trg, zero, batch_noise[:,i].unsqueeze(1)], dim=1)
 
-            c_trg_list.append(c_trg.to(self.device))
+            c_trg_list.append(c_trg_1.to(self.device))
+            c_trg_list.append(c_trg_2.to(self.device))
+
         return c_trg_list
 
     @staticmethod
@@ -289,7 +304,7 @@ class Solver(object):
             # Compute loss for gradient penalty.
             alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
             x_hat = (alpha * x_real.data + (1 - alpha) * x_fake.data).requires_grad_(True)
-            out_src, _ = self.D(x_hat)
+            out_src, _ = self.D(self.FE(x_hat))
             d_loss_gp = self.gradient_penalty(out_src, x_hat)
 
             # Backward and optimize.
@@ -335,6 +350,7 @@ class Solver(object):
                 loss['G/loss_fake'] = g_loss_fake.item()
                 loss['G/loss_rec'] = g_loss_rec.item()
                 loss['G/loss_cls'] = g_loss_cls.item()
+                loss['MI Loss'] = MI_loss.item()
 
             # =================================================================================== #
             #                                 4. Miscellaneous                                    #
