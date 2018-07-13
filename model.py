@@ -71,10 +71,11 @@ class Generator(nn.Module):
             return x,h
         return x
         
-class Discriminator(nn.Module):
+
+class FE(nn.Module):
     """Discriminator network with PatchGAN."""
-    def __init__(self, image_size=128, conv_dim=64, c_dim=5, repeat_num=6):
-        super(Discriminator, self).__init__()
+    def __init__(self, image_size=128, conv_dim=64, repeat_num=6):
+        super(FE, self).__init__()
         layers = []
         layers.append(nn.Conv2d(3, conv_dim, kernel_size=4, stride=2, padding=1))
         layers.append(nn.LeakyReLU(0.01))
@@ -85,13 +86,58 @@ class Discriminator(nn.Module):
             layers.append(nn.LeakyReLU(0.01))
             curr_dim = curr_dim * 2
 
-        kernel_size = int(image_size / np.power(2, repeat_num))
+        kernel_size = image_size // np.power(2, repeat_num)
         self.main = nn.Sequential(*layers)
-        self.conv1 = nn.Conv2d(curr_dim, 1, kernel_size=3, stride=1, padding=1, bias=False)
-        self.conv2 = nn.Conv2d(curr_dim, c_dim, kernel_size=kernel_size, bias=False)
+        # self.conv1 = nn.Conv2d(curr_dim, 1, kernel_size=3, stride=1, padding=1, bias=False)
+        # self.conv2 = nn.Conv2d(curr_dim, c_dim, kernel_size=kernel_size, bias=False)
         
     def forward(self, x):
-        h = self.main(x)
-        out_src = self.conv1(h)
-        out_cls = self.conv2(h)
-        return out_src, out_cls.view(out_cls.size(0), out_cls.size(1))
+        # h = self.main(x)
+        # out_src = self.conv1(h)
+        # out_cls = self.conv2(h)
+        # return out_src, out_cls.view(out_cls.size(0), out_cls.size(1))
+        return self.main(x)
+
+class Discriminator(nn.Module):
+    """ Outputs attributes and real? logits"""
+    def __init__(self,image_size=128,conv_dim=64,c_dim=5, repeat_num=6):
+        super(Discriminator,self).__init__()
+        
+        curr_dim=conv_dim
+        for _ in range(1,repeat_num):
+            curr_dim = curr_dim*2
+        
+        kernel_size=image_size//np.power(2,repeat_num)
+
+        self.real_conv=nn.Conv2d(curr_dim,1,kernel_size=3,stride=1,padding=1,bias=False)
+        self.cls_conv=nn.Conv2d(curr_dim,c_dim,kernel_size=kernel_size,stride=1,bias=False)
+
+    def forward(self,x):
+        out_src=self.real_conv(x)
+        out_cls=self.cls_conv(x)
+        return out_src,out_cls.view(out_cls.size(0),out_cls.size(1))
+
+class Q(nn.Module):
+    """ Outputs logits and stats for G(x,c)"""
+    def __init__(self,image_size=128,conv_dim=64,repeat_num=6,con_dim=2):
+        super(Q,self).__init__()
+
+        curr_dim=conv_dim
+        for _ in range(1,repeat_num):
+            curr_dim=conv_dim*2
+
+        self.conv=nn.Sequential(nn.Conv2d(curr_dim, 128,  kernel_size=1,bias=False),
+                                nn.LeakyReLU(0.01,inplace=True),
+                                nn.Conv2d(128,    64, kernel_size=1,bias=False),
+                                nn.LeakyReLU(0.01,inplace=True))
+
+        self.conv_mu =nn.Conv2d(64,con_dim,kernel_size=1)
+        self.conv_var=nn.Conv2d(64,con_dim,kernel_size=1)
+
+    def forward(self,h):
+        out=self.conv(h)
+        mu_out=self.conv_mu(out).squeeze()
+        var_out=self.conv_var(out).squeeze().exp()
+
+        return mu_out,var_out
+

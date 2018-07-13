@@ -1,5 +1,4 @@
-from model import Generator
-from model import Discriminator
+from model import Generator,Discriminator,FE,Q
 from torch.autograd import Variable
 from torchvision.utils import save_image
 import torch
@@ -10,6 +9,14 @@ import time
 import datetime
 import sys
 
+
+class log_gaussian:
+    def __call__(self,x,mu,var):
+
+        logli=-0.5*(var.mul(2*np.pi)+1e-6).log() - \
+              (x-mu).pow(2).div(var.mul(2.0)+1e-6)
+
+        return logli.sum(1).mean(),mul(-1)
 
 class Solver(object):
     """Solver for training and testing StarGAN."""
@@ -32,7 +39,8 @@ class Solver(object):
         self.lambda_cls = config.lambda_cls
         self.lambda_rec = config.lambda_rec
         self.lambda_gp = config.lambda_gp
-
+        self.lambda_MI = config.lambda_MI
+        
         # Training configurations.
         self.dataset = config.dataset
         self.batch_size = config.batch_size
@@ -45,7 +53,8 @@ class Solver(object):
         self.beta2 = config.beta2
         self.resume_iters = config.resume_iters
         self.selected_attrs = config.selected_attrs
-
+        self.con_dim=config.con_dim
+        
         # Test configurations.
         self.test_iters = config.test_iters
 
@@ -74,14 +83,17 @@ class Solver(object):
     def build_model(self):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD']:
-            self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
+            self.G  = Generator(self.g_conv_dim, self.c_dim+self.con_dim, self.g_repeat_num)
+            self.FE = FE(self.image_size,self.d_conv_dim,self.d_repeat_num)
+            self.D  = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num)
+            self.Q  = Q(self.image_size,self.d_conv_dim,self.d_repeat_num,self.con_dim) 
+
         elif self.dataset in ['Both']:
             self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
             self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim+self.c2_dim, self.d_repeat_num)
 
-        self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
-        self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
+        self.g_optimizer = torch.optim.Adam(list(self.G.parameters())+list(self.Q.parameters()), self.g_lr, [self.beta1, self.beta2])
+        self.d_optimizer = torch.optim.Adam(list(self.D.parameters())+list(self.FE.parameters()), self.d_lr, [self.beta1, self.beta2])
         # self.print_network(self.G, 'G')
         # self.print_network(self.D, 'D')
         self.G.to(self.device)
@@ -206,10 +218,13 @@ class Solver(object):
         x_fixed, c_org = next(data_iter)
         x_fixed = x_fixed.to(self.device)
         c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+        fixed_noise = torch.FloatTensor(x_fixed.size(0),self.con_dim).uniform_(-1,1)
 
         # Learning rate cache for decaying.
         g_lr = self.g_lr
         d_lr = self.d_lr
+
+        gaussianLoss=log_gaussian()
 
         # Start training from scratch or resume training.
         start_iters = 0
@@ -244,9 +259,14 @@ class Solver(object):
                 c_org = self.label2onehot(label_org, self.c_dim)
                 c_trg = self.label2onehot(label_trg, self.c_dim)
 
+            #Add uniform distribution
+            noise  = torch.FloatTensor(x_real.size(0),self.con_dim).uniform_(-1,1)
+            c_org  = torch.cat([c_org,noise],dim=1)
+            c_trg  = torch.cat([c_trg,noise],dim=1)
+
             x_real = x_real.to(self.device)           # Input images.
-            c_org = c_org.to(self.device)             # Original domain labels.
-            c_trg = c_trg.to(self.device)             # Target domain labels.
+            c_org  = c_org.to(self.device)             # Original domain labels.
+            c_trg  = c_trg.to(self.device)             # Target domain labels.
             label_org = label_org.to(self.device)     # Labels for computing classification loss.
             label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
 
@@ -255,13 +275,15 @@ class Solver(object):
             # =================================================================================== #
 
             # Compute loss with real images.
-            out_src, out_cls = self.D(x_real)
+            latent = self.FE(x_real)
+            out_src,out_cls=self.D(latent)
             d_loss_real = - torch.mean(out_src)
             d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
 
             # Compute loss with fake images.
             x_fake = self.G(x_real, c_trg)
-            out_src, out_cls = self.D(x_fake.detach())
+            fake_latent=self.FE(x_fake.detach())
+            out_src, out_cls = self.D(fake_latent)
             d_loss_fake = torch.mean(out_src)
 
             # Compute loss for gradient penalty.
@@ -290,7 +312,8 @@ class Solver(object):
             if (i+1) % self.n_critic == 0:
                 # Original-to-target domain.
                 x_fake = self.G(x_real, c_trg)
-                out_src, out_cls = self.D(x_fake)
+                fake_latent= self.FE(x_fake)
+                out_src, out_cls = self.D(fake_latent)
                 g_loss_fake = - torch.mean(out_src)
                 g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
 
@@ -298,8 +321,12 @@ class Solver(object):
                 x_reconst = self.G(x_fake, c_org)
                 g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
 
+                # Optimize Q
+                q_mu,q_var = self.Q(fake_latent)
+                MI_loss  = gaussianLoss(noise,q_mu,q_var)
+
                 # Backward and optimize.
-                g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
+                g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls + self.lambda_MI*MI_loss
                 self.reset_grad()
                 g_loss.backward()
                 self.g_optimizer.step()
