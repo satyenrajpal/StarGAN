@@ -221,6 +221,7 @@ class AffectNet(data.Dataset):
             # return self.transform(image), torch.FloatTensor(label)
             p=self.transform(image)
             l[0]=label
+            assert 
             return p,l
         else:
             return np.array(image), torch.FloatTensor(label)
@@ -239,7 +240,7 @@ def get_loader(dataset,dict_,step=0,batch_size=16):
     if dataset == 'CelebA' or dict_['dataset'] == 'RaFD':
         transform.append(T.CenterCrop(dict_['crop_size']))
     if dataset!='CelebA-HQ':
-        transform.append(T.Resize(int(2**(5+step)))) #32 -> 64 -> 128...
+        transform.append(T.Resize( (int(2**(5+step)),int(2**(5+step))) )) #32 -> 64 -> 128...
     transform.append(T.ToTensor())
     transform.append(T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
     transform = T.Compose(transform)
