@@ -221,7 +221,7 @@ class AffectNet(data.Dataset):
             # return self.transform(image), torch.FloatTensor(label)
             p=self.transform(image)
             l[0]=label
-            assert 
+            assert p.size()[2]==p.size()[3]
             return p,l
         else:
             return np.array(image), torch.FloatTensor(label)
