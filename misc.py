@@ -176,7 +176,3 @@ class InceptionNet():
                 print(mean_)
         
         return mean_/steps
-                    
-
-
-

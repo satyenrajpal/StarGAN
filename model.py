@@ -41,25 +41,36 @@ class Generator(nn.Module):
         for i in range(repeat_num):
             layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
 
+        self.main=nn.Sequential(*layers)
+
+        upsample=[]
         # Up-sampling layers.
         for i in range(2):
-            layers.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
-            layers.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
-            layers.append(nn.ReLU(inplace=True))
+            upsample.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
+            upsample.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
+            upsample.append(nn.ReLU(inplace=True))
             curr_dim = curr_dim // 2
 
-        layers.append(nn.Conv2d(curr_dim, 3, kernel_size=7, stride=1, padding=3, bias=False))
-        layers.append(nn.Tanh())
-        self.main = nn.Sequential(*layers)
+        upsample.append(nn.Conv2d(curr_dim, 3, kernel_size=7, stride=1, padding=3, bias=False))
+        upsample.append(nn.Tanh())
+        self.upsample = nn.Sequential(*upsample)
 
-    def forward(self, x, c):
+    def forward(self, x, c=None,return_interp=False,partial=False):
         # Replicate spatially and concatenate domain information.
+        if partial and c is None:
+            x=self.upsample(x)
+            return x
+        
         c = c.view(c.size(0), c.size(1), 1, 1)
         c = c.repeat(1, 1, x.size(2), x.size(3))
         x = torch.cat([x, c], dim=1)
-        return self.main(x)
+        h=self.main(x)
+        x=self.upsample(h)
 
-
+        if return_interp:
+            return x,h
+        return x
+        
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
     def __init__(self, image_size=128, conv_dim=64, c_dim=5, repeat_num=6):
