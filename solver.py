@@ -98,6 +98,8 @@ class Solver(object):
         # self.print_network(self.D, 'D')
         self.G.to(self.device)
         self.D.to(self.device)
+        self.FE.to(self.device)
+        self.Q.to(self.device)
 
     def print_network(self, model, name):
         """Print out the network information."""
