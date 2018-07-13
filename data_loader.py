@@ -215,7 +215,7 @@ class AffectNet(data.Dataset):
         dataset=self.train_dataset if self.mode=='train' else self.test_dataset
         filename,label=dataset[index]
         image=Image.open(os.path.join(self.img_dir,filename))
-        if filename.endswith(".png"):
+        if filename.lower().endswith(".png"):
             image=image.convert("RGB")
         if self.transform is not None:
             # return self.transform(image), torch.FloatTensor(label)
