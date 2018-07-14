@@ -131,13 +131,16 @@ class Q(nn.Module):
                                 nn.Conv2d(128,    64, kernel_size=1,bias=False),
                                 nn.LeakyReLU(0.01,inplace=True))
 
-        self.conv_mu =nn.Conv2d(64,con_dim,kernel_size=1)
-        self.conv_var=nn.Conv2d(64,con_dim,kernel_size=1)
+        self.conv_mu =nn.Conv2d(64,con_dim,kernel_size=2,stride=1,padding=0)
+        self.conv_var=nn.Conv2d(64,con_dim,kernel_size=2,stride=1,padding=0)
 
     def forward(self,h):
         out=self.conv(h)
+        
         mu_out=self.conv_mu(out).squeeze()
         var_out=self.conv_var(out).squeeze().exp()
-
+        # print("Size of mu:",mu_out.size())
+        # print("Size of var:",var_out.size())
+        
         return mu_out,var_out
 

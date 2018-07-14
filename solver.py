@@ -14,7 +14,7 @@ class log_gaussian:
     def __call__(self,x,mu,var):
 
         logli=-0.5*(var.mul(2*np.pi)+1e-6).log() - \
-              (x-mu).pow(2).div_(var.mul_(2.0)+1e-6)
+        (x-mu).pow(2).div(var.mul(2.0)+1e-6)
 
         return logli.sum(1).mean().mul(-1)
 
@@ -286,6 +286,7 @@ class Solver(object):
             c_trg  = c_trg.to(self.device)             # Target domain labels.
             label_org = label_org.to(self.device)     # Labels for computing classification loss.
             label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
+            noise = noise.to(self.device)
 
             # =================================================================================== #
             #                             2. Train the discriminator                              #
@@ -340,7 +341,12 @@ class Solver(object):
 
                 # Optimize Q
                 q_mu,q_var = self.Q(fake_latent)
+                # print("Noise: ", type(noise))
+                # print("Mu, ", type(q_mu))
+                # print("Var, ", type(q_var))
                 MI_loss  = gaussianLoss(noise,q_mu,q_var)
+                # logli= -0.5*(q_var.mul(2*np.pi)+1e-6).log() - (noise-q_mu).pow(2).div_(q_var.mul_(2.0)+1e-6)
+                # MI_loss=logli.sum(1).mean().mul_(-1)
 
                 # Backward and optimize.
                 g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls + self.lambda_MI*MI_loss
