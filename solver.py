@@ -626,7 +626,7 @@ class Solver(object):
                         d_lr -= (self.d_lr / float(self.num_iters_decay))
                         self.update_lr(g_lr, d_lr)
                         print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
-                start_iters=0
+            start_iters=0
         
     def train_multi(self):
         """Train StarGAN with multiple datasets."""        
