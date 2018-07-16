@@ -1,7 +1,7 @@
 import os
 import argparse
 from solver import Solver
-from data_loader import get_loader
+from data_loader import get_loader, pre_RaFD
 from torch.backends import cudnn
 from misc import InceptionNet
 
@@ -32,6 +32,9 @@ def main(config):
     # Data loader.
     celeba_loader = None
     rafd_loader = None
+
+    if config.preprocess_rafd:
+        pre_RaFD(config.rafd_image_dir)
 
     if config.dataset in ['CelebA', 'Both']:
         celeba_loader = get_loader(config.celeba_image_dir, config.attr_path, config.selected_attrs,
@@ -69,10 +72,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model configuration.
-    parser.add_argument('--c_dim', type=int, default=5, help='dimension of domain labels (1st dataset)')
+    parser.add_argument('--c_dim', type=int, default=8, help='dimension of domain labels (1st dataset)')
     parser.add_argument('--c2_dim', type=int, default=8, help='dimension of domain labels (2nd dataset)')
     parser.add_argument('--celeba_crop_size', type=int, default=178, help='crop size for the CelebA dataset')
-    parser.add_argument('--rafd_crop_size', type=int, default=256, help='crop size for the RaFD dataset')
+    parser.add_argument('--rafd_crop_size', type=int, default=681, help='crop size for the RaFD dataset')
     parser.add_argument('--image_size', type=int, default=128, help='image resolution')
     parser.add_argument('--g_conv_dim', type=int, default=64, help='number of conv filters in the first layer of G')
     parser.add_argument('--d_conv_dim', type=int, default=64, help='number of conv filters in the first layer of D')
@@ -92,9 +95,9 @@ if __name__ == '__main__':
     parser.add_argument('--n_critic', type=int, default=5, help='number of D updates per each G update')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for Adam optimizer')
     parser.add_argument('--beta2', type=float, default=0.999, help='beta2 for Adam optimizer')
-    parser.add_argument('--resume_iters', type=int, default=160000, help='resume training from this step')
+    parser.add_argument('--resume_iters', type=int, default=0, help='resume training from this step')
     parser.add_argument('--selected_attrs', '--list', nargs='+', help='selected attributes for the CelebA dataset',
-                        default=['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young'])
+                        default=['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young','Bangs','Mouth_Slightly_Open','Mustache'])
 
     # Test configuration.
     parser.add_argument('--test_iters', type=int, default=200000, help='test model from this step')
@@ -107,14 +110,14 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_incNet',type=str,default=None)
     
     # Directories.
-    parser.add_argument('--celeba_image_dir', type=str, default='../CelebA_nocrop/img_celeba')
+    parser.add_argument('--celeba_image_dir', type=str, default='../celebA/img_celeba')
     parser.add_argument('--attr_path', type=str, default='../celebA/Anno/list_attr_celeba.txt')
-    parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
+    parser.add_argument('--rafd_image_dir', type=str, default='../RafD')
     parser.add_argument('--save_dir', type=str, default='stargan')
+    parser.add_argument('--preprocess_rafd',type = str2bool, default=False)
     # parser.add_argument('--log_dir', type=str, default='stargan/logs')
     # parser.add_argument('--sample_dir', type=str, default='stargan/samples')
     # parser.add_argument('--result_dir', type=str, default='stargan/results')
-
 
     # Step size.
     parser.add_argument('--log_step', type=int, default=10)
