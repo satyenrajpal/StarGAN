@@ -145,7 +145,7 @@ class InceptionNet():
                 if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
                     hair_color_indices.append(i)
         
-        mean_, steps = 0, 2
+        mean_, steps = 0, 10000
         transform=self.transform_op(self.image_size)
         
         Gen.to(self.device)
@@ -175,6 +175,7 @@ class InceptionNet():
                 pred_x_gen = sigmoid(self.inc_net(x_gen))
                 bCE = flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
                 mean_ += torch.mean(torch.sum(bCE,1)).cpu().item() 
-                print(mean_)
+                if i%100:
+                    print(mean_)
         
         return mean_/steps
