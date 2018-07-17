@@ -158,7 +158,7 @@ class InceptionNet():
                 try:
                     img, all_labels=next(data_iter)
                 except:
-                    data_iter=iter(data_iter)
+                    data_iter=iter(self.test_dataset)
                     img, all_labels=next(data_iter) #label is a boolean labelled vector
                 
                 #randomly flip  
@@ -175,7 +175,7 @@ class InceptionNet():
                 pred_x_gen = sigmoid(self.inc_net(x_gen))
                 bCE = flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
                 mean_ += torch.mean(torch.sum(bCE,1)).cpu().item() 
-                if i%100:
-                    print(mean_)
+                if (i+1)%100:
+                    print(mean_/i)
         
         return mean_/steps
