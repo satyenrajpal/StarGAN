@@ -38,7 +38,8 @@ class CelebA(data.Dataset):
 
         lines = lines[2:]
         random.seed(1234)
-        random.shuffle(lines)
+        # random.shuffle(lines)
+        shuffle = False
         for i, line in enumerate(lines):
             split = line.split()
             filename = split[0]
@@ -51,11 +52,14 @@ class CelebA(data.Dataset):
                     sel_labels.append(values[idx] == '1')
                 elif attr_name not in self.discard_labels:
                     nSel_labels.append(values[idx]== '1')
-            all_labels=sel_labels+nSel_labels
+            all_labels = sel_labels + nSel_labels
 
             if (i+1) < 2000:
                 self.test_dataset.append([filename, all_labels])
             else:
+                if not shuffle:
+                    random.shuffle(lines[2000:])
+                    shuffle = True
                 self.train_dataset.append([filename, sel_labels])
 
         print('Finished preprocessing the CelebA dataset...')
@@ -72,7 +76,7 @@ class CelebA(data.Dataset):
         return self.num_images
 
 def pre_RaFD(root):
-    """ Segregate images into folders """
+    """ Segregate RafD images into folders """
     cwd = os.getcwd()
     os.chdir(root)
     attr = ['angry','contemptuous','disgusted','fearful','happy','neutral','sad', 'surprised']

@@ -96,25 +96,34 @@ class Solver(object):
         print(model)
         print("The number of parameters: {}".format(num_params))
 
-    def restore_model(self, resume_iters,load_state_dict=False):
+    def restore_model(self, resume_iters=0,load_state_dict=False,G_path=None, D_path=None):
         """Restore the trained generator and discriminator."""
-        print('Loading the trained models from step {}...'.format(resume_iters))
-        G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
-        D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
-        G=torch.load(G_path, map_location=lambda storage, loc: storage)
+        if resume_iters:
+            print('Loading the trained models from step {}...'.format(resume_iters))
+            G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
+            D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
+        
+        elif G_path is not None and D_path is not None:
+            print('Loading G and D trained models from {} respectively'.format(G_path,D_path))
+            G = torch.load(G_path, map_location=lambda storage, loc: storage)
 
-        new=list(G.items())
-        G_state_dict=self.G.state_dict()
-        count=0
-        for key,value in G_state_dict.items():
-            _,weights=new[count]
-            G_state_dict[key]=weights
-            count+=1
+            new = list(G.items())
+            G_state_dict = self.G.state_dict()
+            count = 0
+            for key, value in G_state_dict.items():
+                _, weights = new[count]
+                G_state_dict[key] = weights
+                count += 1
 
+        else:
+            print('Invalid paths for G and D')
+
+        
         self.D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
         if load_state_dict:
             self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
-        self.G.load_state_dict(G_state_dict)
+        else:
+            self.G.load_state_dict(G_state_dict)
         
     def build_tensorboard(self):
         """Build a tensorboard logger."""

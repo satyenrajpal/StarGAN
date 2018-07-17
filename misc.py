@@ -38,8 +38,7 @@ class InceptionNet():
         else:
             sys.exit("Pretrained path invalid")
 
-    @staticmethod
-    def classification_loss(logit, target, dataset='CelebA'):
+    def classification_loss(self, logit, target, dataset='CelebA'):
         """Compute binary or softmax cross entropy loss."""
         if dataset == 'CelebA':
             return F.binary_cross_entropy_with_logits(logit, target, size_average=False) / logit.size(0)
@@ -47,9 +46,9 @@ class InceptionNet():
             return F.cross_entropy(logit, target)
 
     def train(self,config):
-        train_dataset=get_loader(config.celeba_image_dir, config.attr_path, 
-                                config.selected_attrs,image_size=self.image_size,
-                                num_workers=config.num_workers,dataset=config.dataset)
+        train_dataset = get_loader(config.celeba_image_dir, config.attr_path, 
+                                   config.selected_attrs,image_size=self.image_size,
+                                   num_workers=config.num_workers,dataset=config.dataset)
         
         print('Start Training...')
         start_time=time.time()
@@ -81,6 +80,8 @@ class InceptionNet():
                     print(log)
                     
     def test(self):
+        """ Test method during training"""
+
         acc=0
         with torch.no_grad():
             for _,data in enumerate(self.test_dataset):
@@ -138,18 +139,18 @@ class InceptionNet():
         #Inception net
         self.load_pretrained()
 
-        if config.dataset=='CelebA':
+        if self.dataset=='CelebA':
             hair_color_indices=[]
             for i,attr_name in enumerate(self.selected_attrs):
                 if attr_name in ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Gray_Hair']:
                     hair_color_indices.append(i)
         
-        mean_,steps=0,2
+        mean_, steps = 0, 2
         transform=self.transform_op(self.image_size)
         
-        Gen.to(device)
+        Gen.to(self.device)
         sigmoid=nn.Sigmoid()
-        data_iter=iter(test_dataset)
+        data_iter=iter(self.test_dataset)
 
         print("Calculating score...")
         with torch.no_grad():
@@ -158,21 +159,22 @@ class InceptionNet():
                     img, all_labels=next(data_iter)
                 except:
                     data_iter=iter(data_iter)
-                    img,all_labels=next(data_iter) #label is a boolean labelled vector
+                    img, all_labels=next(data_iter) #label is a boolean labelled vector
                 
                 #randomly flip  
-                flipped_labels=self.flip_labels(all_labels,self.selected_attrs,self.dataset,hair_color_indices)
+                flipped_labels = self.flip_labels(all_labels,self.selected_attrs,self.dataset,hair_color_indices)
                 
-                img=img.to(device)
-                flipped_labels=flipped_labels.to(device)
+                img = img.to(self.device)
+                flipped_labels = flipped_labels.to(self.device)
 
-                x_gen=Gen(img,flipped_labels)
-                x_gen=torch.stack([transform(pop.detach().cpu()) for pop in x_gen])
-                x_gen=x_gen.to(device)
+                x_gen = Gen(img,flipped_labels)
+                # Transform into 299x299 for passing into InceptionNet
+                x_gen = torch.stack([transform(pop.detach().cpu()) for pop in x_gen])
+                x_gen = x_gen.to(self.device)
 
-                pred_x_gen=sigmoid(self.inc_net(x_gen))
-                bCE=flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
-                mean_+=torch.mean(torch.sum(bCE,1)).cpu().item() 
+                pred_x_gen = sigmoid(self.inc_net(x_gen))
+                bCE = flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
+                mean_ += torch.mean(torch.sum(bCE,1)).cpu().item() 
                 print(mean_)
         
         return mean_/steps
