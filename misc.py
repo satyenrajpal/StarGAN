@@ -175,7 +175,7 @@ class InceptionNet():
                 pred_x_gen = sigmoid(self.inc_net(x_gen))
                 bCE = flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
                 mean_ += torch.mean(torch.sum(bCE,1)).cpu().item() 
-                if (i+1)%100:
+                if (i+1)%100==0:
                     print(mean_/i)
         
         return mean_/steps
