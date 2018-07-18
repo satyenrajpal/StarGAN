@@ -151,6 +151,7 @@ class InceptionNet():
         Gen.to(self.device)
         sigmoid=nn.Sigmoid()
         data_iter=iter(self.test_dataset)
+        cpu_device = torch.device('cpu')
 
         print("Calculating score...")
         with torch.no_grad():
@@ -172,9 +173,11 @@ class InceptionNet():
                 x_gen = torch.stack([transform(pop.detach().cpu()) for pop in x_gen])
                 x_gen = x_gen.to(self.device)
 
-                pred_x_gen = sigmoid(self.inc_net(x_gen))
-                bCE = flipped_labels*torch.log(pred_x_gen)+(1-flipped_labels)*torch.log(1-pred_x_gen)
-                mean_ += torch.mean(torch.sum(bCE,1)).cpu().item() 
+                pred_x_gen = sigmoid(self.inc_net(x_gen)).to(cpu_device).numpy()
+                cpu_flipped_labels = flipped_labels.to(cpu_device).numpy()
+
+                bCE = cpu_flipped_labels*np.log(pred_x_gen+1e-6)+(1-cpu_flipped_labels)*np.log(1-pred_x_gen + 1e-6)
+                mean_ += np.mean(np.sum(bCE,axis=1)) 
                 if (i+1)%100==0:
                     print(mean_/i)
         
