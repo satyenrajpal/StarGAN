@@ -29,7 +29,7 @@ class Solver(object):
         self.rafd_loader = rafd_loader
 
         # Model configurations.
-        self.c_dim = config.c_dim
+        self.c_dim = config.c_dim # Should be 8
         self.c2_dim = config.c2_dim
         self.image_size = config.image_size
         self.g_conv_dim = config.g_conv_dim
@@ -92,8 +92,8 @@ class Solver(object):
             self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
             self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim+self.c2_dim, self.d_repeat_num)
 
-        self.g_optimizer = torch.optim.Adam(list(self.G.parameters())+list(self.Q.parameters()), self.g_lr, [self.beta1, self.beta2])
-        self.d_optimizer = torch.optim.Adam(list(self.D.parameters())+list(self.FE.parameters()), self.d_lr, [self.beta1, self.beta2])
+        self.g_optimizer = torch.optim.Adam([{'params' : self.G.parameters()}, {'params' : self.Q.parameters() }], self.g_lr, [self.beta1, self.beta2])
+        self.d_optimizer = torch.optim.Adam([{'params' : self.D.parameters()}, {'params' : self.FE.parameters()}], self.d_lr, [self.beta1, self.beta2])
         # self.print_network(self.G, 'G')
         # self.print_network(self.D, 'D')
         self.G.to(self.device)
@@ -192,6 +192,8 @@ class Solver(object):
         batch_noise = torch.FloatTensor(torch.from_numpy(batch_noise).float())
 
         c_trg_list = []
+        noise = torch.FloatTensor(c_org.size(0),2).data.uniform_(-1.0,1.0)
+        
         for i in range(c_dim):
             if dataset == 'CelebA':
                 c_trg = c_org.clone()
@@ -205,12 +207,15 @@ class Solver(object):
                 
             elif dataset == 'RaFD':
                 c_trg = self.label2onehot(torch.ones(c_org.size(0))*i, c_dim)
+            
             #Add fixed noise
             c_trg_1 = torch.cat([c_trg, batch_noise[:,i].unsqueeze(1), zero], dim=1)
             c_trg_2 = torch.cat([c_trg, zero, batch_noise[:,i].unsqueeze(1)], dim=1)
+            c_trg_3 = torch.cat([c_trg, noise],dim=1)
 
             c_trg_list.append(c_trg_1.to(self.device))
             c_trg_list.append(c_trg_2.to(self.device))
+            c_trg_list.append(c_trg_3.to(self.device))
 
         return c_trg_list
 
@@ -235,7 +240,7 @@ class Solver(object):
         x_fixed, c_org = next(data_iter)
         x_fixed = x_fixed.to(self.device)
         c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
-        fixed_noise = torch.FloatTensor(x_fixed.size(0),self.con_dim).uniform_(-1,1)
+        # fixed_noise = torch.FloatTensor(x_fixed.size(0),self.con_dim).uniform_(-1,1)
 
         # Learning rate cache for decaying.
         g_lr = self.g_lr
@@ -248,6 +253,9 @@ class Solver(object):
         if self.resume_iters:
             start_iters = self.resume_iters
             self.restore_model(self.resume_iters)
+
+
+        noise = torch.FloatTensor(self.batch_size,self.con_dim).requires_grad_(True).to(self.device)
 
         # Start training.
         print('Start training...')
@@ -277,7 +285,8 @@ class Solver(object):
                 c_trg = self.label2onehot(label_trg, self.c_dim)
 
             #Add uniform distribution
-            noise  = torch.FloatTensor(x_real.size(0),self.con_dim).uniform_(-1,1)
+            noise.data.resize_(x_real.size(0),self.con_dim)
+            noise.data.uniform_(-1,1)
             c_org  = torch.cat([c_org,noise],dim=1)
             c_trg  = torch.cat([c_trg,noise],dim=1)
 
@@ -345,9 +354,7 @@ class Solver(object):
                 # print("Mu, ", type(q_mu))
                 # print("Var, ", type(q_var))
                 MI_loss  = gaussianLoss(noise,q_mu,q_var)
-                # logli= -0.5*(q_var.mul(2*np.pi)+1e-6).log() - (noise-q_mu).pow(2).div_(q_var.mul_(2.0)+1e-6)
-                # MI_loss=logli.sum(1).mean().mul_(-1)
-
+                
                 # Backward and optimize.
                 g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls + self.lambda_MI*MI_loss
                 self.reset_grad()

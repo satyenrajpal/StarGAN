@@ -1,7 +1,7 @@
 import os
 import argparse
 from solver import Solver
-from data_loader import get_loader
+from data_loader import get_loader, pre_RaFD
 from torch.backends import cudnn
 from misc import InceptionNet
 
@@ -33,6 +33,9 @@ def main(config):
     celeba_loader = None
     rafd_loader = None
 
+    if config.preprocess_rafd:
+        pre_RaFD(config.rafd_image_dir)
+
     if config.dataset in ['CelebA', 'Both']:
         celeba_loader = get_loader(config.celeba_image_dir, config.attr_path, config.selected_attrs,
                                    config.celeba_crop_size, config.image_size, config.batch_size,
@@ -42,7 +45,6 @@ def main(config):
                                  config.rafd_crop_size, config.image_size, config.batch_size,
                                  'RaFD', config.mode, config.num_workers)
     
-
     # Solver for training and testing StarGAN.
     solver = Solver(celeba_loader, rafd_loader, config)
 
@@ -69,17 +71,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model configuration.
-    parser.add_argument('--c_dim', type=int, default=5, help='dimension of domain labels (1st dataset)')
+    parser.add_argument('--c_dim', type=int, default=8, help='dimension of domain labels (1st dataset)')
     parser.add_argument('--c2_dim', type=int, default=8, help='dimension of domain labels (2nd dataset)')
     parser.add_argument('--celeba_crop_size', type=int, default=178, help='crop size for the CelebA dataset')
-    parser.add_argument('--rafd_crop_size', type=int, default=256, help='crop size for the RaFD dataset')
+    parser.add_argument('--rafd_crop_size', type=int, default=650, help='crop size for the RaFD dataset')
     parser.add_argument('--image_size', type=int, default=128, help='image resolution')
     parser.add_argument('--g_conv_dim', type=int, default=64, help='number of conv filters in the first layer of G')
     parser.add_argument('--d_conv_dim', type=int, default=64, help='number of conv filters in the first layer of D')
     parser.add_argument('--g_repeat_num', type=int, default=6, help='number of residual blocks in G')
     parser.add_argument('--d_repeat_num', type=int, default=6, help='number of strided conv layers in D')
     parser.add_argument('--lambda_cls', type=float, default=1, help='weight for domain classification loss')
-    parser.add_argument('--lambda_rec', type=float, default=10, help='weight for reconstruction loss')
+    parser.add_argument('--lambda_rec', type=float, default=2, help='weight for reconstruction loss')
     parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
     parser.add_argument('--lambda_MI', type=float, default=10, help='weight for MI loss')
     
@@ -107,7 +109,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_tensorboard', type=str2bool, default=True)
     parser.add_argument('--train_inc',type=str2bool,default=False)
     parser.add_argument('--pretrained_incNet',type=str,default=None)
-    
+    parser.add_argument('--preprocess_rafd',type=str2bool,default=False)
     # Directories.
     parser.add_argument('--celeba_image_dir', type=str, default='../CelebA_nocrop/img_celeba')
     parser.add_argument('--attr_path', type=str, default='../celebA/Anno/list_attr_celeba.txt')

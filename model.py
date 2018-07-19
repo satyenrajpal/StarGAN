@@ -109,8 +109,8 @@ class Discriminator(nn.Module):
         
         kernel_size=image_size//np.power(2,repeat_num)
 
-        self.real_conv=nn.Conv2d(curr_dim,1,kernel_size=3,stride=1,padding=1,bias=False)
-        self.cls_conv=nn.Conv2d(curr_dim,c_dim,kernel_size=kernel_size,stride=1,bias=False)
+        self.real_conv = nn.Conv2d(curr_dim,1,kernel_size=3,stride=1,padding=1,bias=False)
+        self.cls_conv  = nn.Conv2d(curr_dim,c_dim,kernel_size=kernel_size,stride=1,bias=False)
 
     def forward(self,x):
         out_src=self.real_conv(x)

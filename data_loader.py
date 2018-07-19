@@ -71,6 +71,22 @@ class CelebA(data.Dataset):
         """Return the number of images."""
         return self.num_images
 
+def pre_RaFD(root):
+    """ Segregate RafD images into folders """
+    cwd = os.getcwd()
+    os.chdir(root)
+    attr = ['angry','contemptuous','disgusted','fearful','happy','neutral','sad', 'surprised']
+    print("Folders created. Segregating images into folders..")
+    for name in attr:
+        if not os.path.exists(name):
+            os.makedirs(name)
+    for i, file in enumerate(glob.glob("*.jpg")):
+        for name in attr:
+            if name in file:
+                shutil.move(file,os.path.join(name,file))
+                break
+    os.chdir(cwd)
+    print("Preprocessing of RaFD done.")
 
 def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=128, 
                batch_size=16, dataset='CelebA', mode='train', num_workers=1):
