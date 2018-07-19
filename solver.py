@@ -274,7 +274,7 @@ class Solver(object):
                 data_iter = iter(data_loader)
                 x_real, label_org = next(data_iter)
 
-            if x_real.size() != self.batch_size:
+            if x_real.size(0) != self.batch_size:
                 continue
             # Generate target domain labels randomly.
             rand_idx = torch.randperm(label_org.size(0))
