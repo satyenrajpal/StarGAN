@@ -13,6 +13,8 @@ import sys
 class log_gaussian:
     def __call__(self,x,mu,var):
 
+        print("size of x:  ", x.size())
+        print("size of mu: ", mu.size())
         logli=-0.5*(var.mul(2*np.pi)+1e-6).log() - \
         (x-mu).pow(2).div(var.mul(2.0)+1e-6)
 
