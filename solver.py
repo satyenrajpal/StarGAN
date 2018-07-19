@@ -287,15 +287,15 @@ class Solver(object):
             #Add uniform distribution
             noise.data.resize_(x_real.size(0),self.con_dim)
             noise.data.uniform_(-1,1)
+            c_org  = c_org.to(self.device)             # Original domain labels.
+            c_trg  = c_trg.to(self.device)             # Target domain labels.
             c_org  = torch.cat([c_org,noise],dim=1)
             c_trg  = torch.cat([c_trg,noise],dim=1)
 
             x_real = x_real.to(self.device)           # Input images.
-            c_org  = c_org.to(self.device)             # Original domain labels.
-            c_trg  = c_trg.to(self.device)             # Target domain labels.
             label_org = label_org.to(self.device)     # Labels for computing classification loss.
             label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
-            noise = noise.to(self.device)
+            # noise = noise.to(self.device)
 
             # =================================================================================== #
             #                             2. Train the discriminator                              #
