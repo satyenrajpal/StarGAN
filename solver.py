@@ -269,10 +269,13 @@ class Solver(object):
             # Fetch real images and labels.
             try:
                 x_real, label_org = next(data_iter)
+
             except:
                 data_iter = iter(data_loader)
                 x_real, label_org = next(data_iter)
 
+            if x_real.size() != self.batch_size:
+                continue
             # Generate target domain labels randomly.
             rand_idx = torch.randperm(label_org.size(0))
             label_trg = label_org[rand_idx]
