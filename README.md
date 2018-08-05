@@ -158,3 +158,10 @@ If this work is useful for your research, please cite our [paper](https://arxiv.
 
 ## Acknowledgement
 This work was mainly done while the first author did a research internship at [Clova AI Research, NAVER](https://clova.ai/en/research/research-area-detail.html?id=0). We thank all the researchers at NAVER, especially Donghyun Kwak, for insightful discussions.
+
+## TODO:
+ - [ ] Add Pose variant image generation by - 
+        1. - [ ] Splitting Generator for different datasets
+        2. - [ ] Add loss function for predicting angle? facial landmarks?
+        3. - [ ] Remove dependency of "which dataset?"
+ - [ ] Add consistency loss from CTGAN
