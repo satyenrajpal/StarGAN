@@ -75,13 +75,19 @@ class Solver(object):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD']:
             self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
+            self.D = Discriminator(self.image_size, self.d_conv_dim, [self.c_dim], self.d_repeat_num) 
+            self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
         elif self.dataset in ['Both']:
-            self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
-            self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim+self.c2_dim, self.d_repeat_num)
-
+            self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim, self.g_repeat_num)   # 2 for mask vector.
+            # self.D_1 = Discriminator(self.image_size, self.d_conv_dim, [self.c_dim], self.d_repeat_num)
+            # self.D_2 = Discriminator(self.image_size, self.d_conv_dim, [self.c2_dim], self.d_repeat_num)
+            # self.d_optimizer_1 = torch.optim.Adam(self.D_1.parameters(), self.d_lr, [self.beta1, self.beta2])
+            # self.d_optimizer_2 = torch.optim.Adam(self.D_2.parameters(), self.d_lr, [self.beta1, self.beta2])
+            self.D = Discriminator(self.image_size, self.d_conv_dim, [self.c_dim, self.c2_dim], self.d_repeat_num)
+            self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
+        
         self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
-        self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
+
         # self.print_network(self.G, 'G')
         # self.print_network(self.D, 'D')
         self.G.to(self.device)
@@ -374,8 +380,8 @@ class Solver(object):
         c_rafd_list = self.create_labels(c_org, self.c2_dim, 'RaFD')
         zero_celeba = torch.zeros(x_fixed.size(0), self.c_dim).to(self.device)           # Zero vector for CelebA.
         zero_rafd = torch.zeros(x_fixed.size(0), self.c2_dim).to(self.device)             # Zero vector for RaFD.
-        mask_celeba = self.label2onehot(torch.zeros(x_fixed.size(0)), 2).to(self.device)  # Mask vector: [1, 0].
-        mask_rafd = self.label2onehot(torch.ones(x_fixed.size(0)), 2).to(self.device)     # Mask vector: [0, 1].
+        # mask_celeba = self.label2onehot(torch.zeros(x_fixed.size(0)), 2).to(self.device)  # Mask vector: [1, 0].
+        # mask_rafd = self.label2onehot(torch.ones(x_fixed.size(0)), 2).to(self.device)     # Mask vector: [0, 1].
 
         # Learning rate cache for decaying.
         g_lr = self.g_lr
@@ -418,16 +424,16 @@ class Solver(object):
                     c_org = label_org.clone()
                     c_trg = label_trg.clone()
                     zero = torch.zeros(x_real.size(0), self.c2_dim)
-                    mask = self.label2onehot(torch.zeros(x_real.size(0)), 2)
-                    c_org = torch.cat([c_org, zero, mask], dim=1)
-                    c_trg = torch.cat([c_trg, zero, mask], dim=1)
+                    # mask = self.label2onehot(torch.zeros(x_real.size(0)), 2)
+                    c_org = torch.cat([c_org, zero], dim=1)
+                    c_trg = torch.cat([c_trg, zero], dim=1)
                 elif dataset == 'RaFD':
                     c_org = self.label2onehot(label_org, self.c2_dim)
                     c_trg = self.label2onehot(label_trg, self.c2_dim)
                     zero = torch.zeros(x_real.size(0), self.c_dim)
-                    mask = self.label2onehot(torch.ones(x_real.size(0)), 2)
-                    c_org = torch.cat([zero, c_org, mask], dim=1)
-                    c_trg = torch.cat([zero, c_trg, mask], dim=1)
+                    # mask = self.label2onehot(torch.ones(x_real.size(0)), 2)
+                    c_org = torch.cat([zero, c_org], dim=1)
+                    c_trg = torch.cat([zero, c_trg], dim=1)
 
                 x_real = x_real.to(self.device)             # Input images.
                 c_org = c_org.to(self.device)               # Original domain labels.
@@ -440,8 +446,10 @@ class Solver(object):
                 # =================================================================================== #
 
                 # Compute loss with real images.
+                # out_src, out_cls = self.D_1(x_real) if dataset =='CelebA' else self.D_2(x_real)
                 out_src, out_cls = self.D(x_real)
-                out_cls = out_cls[:, :self.c_dim] if dataset == 'CelebA' else out_cls[:, self.c_dim:]
+                # out_cls = out_cls[:, :self.c_dim] if dataset == 'CelebA' else out_cls[:, self.c_dim:]
+                out_cls = out_cls[0] if dataset == 'CelebA' else out_cls[1]
                 d_loss_real = - torch.mean(out_src)
                 d_loss_cls = self.classification_loss(out_cls, label_org, dataset)
 
@@ -458,7 +466,9 @@ class Solver(object):
 
                 # Backward and optimize.
                 d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-                self.reset_grad()
+                # self.reset_grad()
+                # self.d_optimizer_1.zero_grad()
+                self.d_optimizer.zero_grad()
                 d_loss.backward()
                 self.d_optimizer.step()
 
@@ -477,7 +487,8 @@ class Solver(object):
                     # Original-to-target domain.
                     x_fake = self.G(x_real, c_trg)
                     out_src, out_cls = self.D(x_fake)
-                    out_cls = out_cls[:, :self.c_dim] if dataset == 'CelebA' else out_cls[:, self.c_dim:]
+                    # out_cls = out_cls[:, :self.c_dim] if dataset == 'CelebA' else out_cls[:, self.c_dim:]
+                    out_cls = out_cls[0] if dataset == 'CelebA' else out_cls[1]
                     g_loss_fake = - torch.mean(out_src)
                     g_loss_cls = self.classification_loss(out_cls, label_trg, dataset)
 
@@ -518,10 +529,10 @@ class Solver(object):
                 with torch.no_grad():
                     x_fake_list = [x_fixed]
                     for c_fixed in c_celeba_list:
-                        c_trg = torch.cat([c_fixed, zero_rafd, mask_celeba], dim=1)
+                        c_trg = torch.cat([c_fixed, zero_rafd], dim=1)
                         x_fake_list.append(self.G(x_fixed, c_trg))
                     for c_fixed in c_rafd_list:
-                        c_trg = torch.cat([zero_celeba, c_fixed, mask_rafd], dim=1)
+                        c_trg = torch.cat([zero_celeba, c_fixed], dim=1)
                         x_fake_list.append(self.G(x_fixed, c_trg))
                     x_concat = torch.cat(x_fake_list, dim=3)
                     sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(i+1))
