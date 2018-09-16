@@ -32,6 +32,7 @@ class Solver(object):
         self.lambda_cls = config.lambda_cls
         self.lambda_rec = config.lambda_rec
         self.lambda_gp = config.lambda_gp
+        self.lambda_ct = config.lambda_ct
 
         # Training configurations.
         self.dataset = config.dataset
@@ -264,23 +265,30 @@ class Solver(object):
             # =================================================================================== #
 
             # Compute loss with real images.
-            out_src, out_cls = self.D(x_real)
+            out_src, out_cls, h_1 = self.D(x_real)
             d_loss_real = - torch.mean(out_src)
             d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
 
             # Compute loss with fake images.
             x_fake = self.G(x_real, c_trg)
-            out_src, out_cls = self.D(x_fake.detach())
+            out_src, out_cls, _ = self.D(x_fake.detach())
             d_loss_fake = torch.mean(out_src)
 
             # Compute loss for gradient penalty.
             alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
             x_hat = (alpha * x_real.data + (1 - alpha) * x_fake.data).requires_grad_(True)
-            out_src, _ = self.D(x_hat)
+            out_src, _, _ = self.D(x_hat)
             d_loss_gp = self.gradient_penalty(out_src, x_hat)
 
+            # Consistency Loss 
+            out_src_, _, h_1_ = self.D(x_real)
+            
+            CT = torch.mean((out_src - out_src_).view(x_real.size(0), -1),dim=1)
+            CT = CT.pow(2) + 0.1 * torch.mean((h_1 - h_1_).pow(2), dim=1)
+            CT = torch.mean(torch.max(torch.Tensor([0]).to(self.device),CT))
+
             # Backward and optimize.
-            d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
+            d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp + self.lambda_ct * CT
             self.reset_grad()
             d_loss.backward()
             self.d_optimizer.step()
@@ -291,6 +299,7 @@ class Solver(object):
             loss['D/loss_fake'] = d_loss_fake.item()
             loss['D/loss_cls'] = d_loss_cls.item()
             loss['D/loss_gp'] = d_loss_gp.item()
+            loss['D/loss_ct'] = CT.item()
             
             # =================================================================================== #
             #                               3. Train the generator                                #
@@ -299,7 +308,7 @@ class Solver(object):
             if (i+1) % self.n_critic == 0:
                 # Original-to-target domain.
                 x_fake = self.G(x_real, c_trg)
-                out_src, out_cls = self.D(x_fake)
+                out_src, out_cls, _ = self.D(x_fake)
                 g_loss_fake = - torch.mean(out_src)
                 g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
 

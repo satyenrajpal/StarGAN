@@ -83,6 +83,7 @@ class Discriminator(nn.Module):
         for i in range(1, repeat_num):
             layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=4, stride=2, padding=1))
             layers.append(nn.LeakyReLU(0.01))
+            layers.append(nn.Dropout(p=0.5))
             curr_dim = curr_dim * 2
 
         kernel_size = int(image_size / np.power(2, repeat_num))
@@ -94,4 +95,4 @@ class Discriminator(nn.Module):
         h = self.main(x)
         out_src = self.conv1(h)
         out_cls = self.conv2(h)
-        return out_src, out_cls.view(out_cls.size(0), out_cls.size(1))
+        return out_src, out_cls.view(out_cls.size(0), out_cls.size(1)), h.view(x.size(0), -1)
