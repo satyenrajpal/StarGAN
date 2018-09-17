@@ -42,7 +42,7 @@ def main(config):
         'mode': config.mode,
         'num_workers': config.num_workers}
     
-    if config.dataset in ['RaFD', 'Both']:
+    if config.dataset in ['RaFD', 'Both', 'HQ']:
         rafd_args = {'dataset':config.dataset,
         'img_dir': config.rafd_image_dir,
         'attr_path': None,
@@ -60,17 +60,17 @@ def main(config):
         'hq_attr_path':config.hq_attr_path,
         'attr_path':config.attr_path}
     
-    if config.dataset in ['AffectNet','HQ']:
-        affectNet_args={'dataset':config.dataset,
-        'selected_attrs':config.selected_attrs,
-        'mode':config.mode,
-        'num_workers':4,
-        'img_dir':config.affectNet_dir,
-        'aNet_labels':config.aNet_labels}
+    # if config.dataset in ['AffectNet','HQ']:
+    #     affectNet_args={'dataset':config.dataset,
+    #     'selected_attrs':config.selected_attrs,
+    #     'mode':config.mode,
+    #     'num_workers':4,
+    #     'img_dir':config.affectNet_dir,
+    #     'aNet_labels':config.aNet_labels}
     
     # Solver for training and testing StarGAN.
     solver = Solver(config,celeba_args=celeba_args, rafd_args=rafd_args,
-        celebaHQ_args=celebaHQ_args,affectNet_args=affectNet_args)
+        celebaHQ_args=celebaHQ_args)
 
     if config.mode == 'train':
         if config.dataset in ['CelebA', 'RaFD','CelebA-HQ']:
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     parser.add_argument('--c_dim', type=int, default=8, help='dimension of domain labels (1st dataset)')
     parser.add_argument('--c2_dim', type=int, default=8, help='dimension of domain labels (2nd dataset)')
     parser.add_argument('--celeba_crop_size', type=int, default=178, help='crop size for the CelebA dataset')
-    parser.add_argument('--rafd_crop_size', type=int, default=256, help='crop size for the RaFD dataset')
+    parser.add_argument('--rafd_crop_size', type=int, default=325, help='crop size for the RaFD dataset')
     parser.add_argument('--image_size', type=int, default=128, help='image resolution')
     parser.add_argument('--d_conv_dim', type=int, default=64, help='number of conv filters in the first layer of D')
     parser.add_argument('--g_repeat_num', type=int, default=6, help='number of residual blocks in G')
@@ -101,6 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_cls', type=float, default=1, help='weight for domain classification loss')
     parser.add_argument('--lambda_rec', type=float, default=10, help='weight for reconstruction loss')
     parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
+    parser.add_argument('--lambda_ct', type=float, default=2.0, help='weight for consistency loss')
     
     # Training configuration.
     parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both','CelebA-HQ','AffectNet','HQ'])
@@ -135,6 +136,7 @@ if __name__ == '__main__':
     #       AffectNet
     parser.add_argument('--affectNet_dir',type=str,default='affectNet')
     parser.add_argument('--aNet_labels',type=str,default='affectNet/processed_labels_train.txt')
+    
     #       RaFD
     parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
     

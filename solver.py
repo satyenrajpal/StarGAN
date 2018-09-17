@@ -41,6 +41,7 @@ class Solver(object):
         self.lambda_cls = config.lambda_cls
         self.lambda_rec = config.lambda_rec
         self.lambda_gp = config.lambda_gp
+        self.lamda_ct = config.lambda_ct
 
         # Training configurations.
         self.dataset = config.dataset
@@ -198,7 +199,7 @@ class Solver(object):
         """Train StarGAN within a single dataset."""
         
         # Start training from scratch or resume training.
-        # start_iters = 0
+        start_iters = 0
         if self.resume_iters:
             start_iters = self.resume_iters
             self.restore_model(self.start_step,self.resume_iters)
@@ -282,30 +283,35 @@ class Solver(object):
                 # =================================================================================== #
                 requires_grad(self.G,False)
                 requires_grad(self.D,True)
-                self.G.zero_grad()
-                self.D.zero_grad()
+                
                 # Compute loss with real images.
-                out_src, out_cls = self.D(x_real,step,alpha)
-                d_loss_real = -torch.mean(out_src)
+                out_src_1, out_cls, h_1 = self.D(x_real,step,alpha)
+                d_loss_real = -torch.mean(out_src_1)
                 
                 #Classification loss
                 d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
                 
                 # Compute loss with fake images.
                 x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
-                out_src, out_cls = self.D(x_fake.detach(),step,alpha) #take in step as argument
+                out_src, out_cls, _ = self.D(x_fake.detach(),step,alpha) #take in step as argument
                 d_loss_fake = torch.mean(out_src)
                 
                 # Compute loss for gradient penalty.
                 eps = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
                 x_hat = (eps * x_real.data + (1 - eps) * x_fake.data)
                 x_hat = Variable(x_hat,requires_grad=True)
-                out_src, _ = self.D(x_hat,step,alpha) #Take in step as argument
+                out_src, _, _ = self.D(x_hat,step,alpha) #Take in step as argument
                 d_loss_gp = self.gradient_penalty(out_src.sum(), x_hat)
                 
+                # Compute loss for consistency term
+                out_src_, _, h_1_ = self.D(x_real)
+                d_CT = torch.mean((out_src_1 - out_src_).view(x_real.size(0), -1), dim=1)
+                d_CT = d_CT.pow(2) + 0.1 * torch.mean((h_1 - h_1_).pow(2), dim = 1)
+                d_CT = torch.mean(torch.max(torch.Tensor([0]).to(self.device), d_CT))
+
                 # Backward and optimize.
-                d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-                # self.reset_grad()
+                d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp + self.lamda_ct * d_CT 
+                self.reset_grad()
                 d_loss.backward(retain_graph=True)
                 self.d_optimizer.step()
 
@@ -315,6 +321,7 @@ class Solver(object):
                 loss['D/loss_fake'] = d_loss_fake.item()
                 loss['D/loss_cls'] = d_loss_cls.item()
                 loss['D/loss_gp'] = d_loss_gp.item()
+                loss['D/loss_CT'] = d_CT.item()
 
                 # =================================================================================== #
                 #                               3. Train the generator                                #
@@ -325,9 +332,10 @@ class Solver(object):
                     requires_grad(self.D,False)
                     self.G.zero_grad()
                     self.D.zero_grad()
+                    
                     # Original-to-target domain.
                     x_fake = self.G(x_real, c_trg,step,alpha) 
-                    out_src, out_cls = self.D(x_fake,step,alpha) 
+                    out_src, out_cls, _ = self.D(x_fake,step,alpha) 
                     g_loss_fake = - torch.mean(out_src)
 
                     #Classification loss
@@ -425,35 +433,35 @@ class Solver(object):
                 batch_size=3 #1024^2
 
             #Get both data_loaders based on step
-            celeba_loader=get_loader('CelebA-HQ',self.celebaHQ_args,step,batch_size)
-            affectNet_loader=get_loader('AffectNet',self.affectNet_args,step,batch_size)
+            celeba_loader = get_loader('CelebA-HQ',self.celebaHQ_args, step, batch_size)
+            rafd_loader = get_loader('RaFD',self.rafd_args, step, batch_size)
             print("Both datasets for step {} loaded".format(step))
             
             # get fixed inputs of this step for debugging
             celeba_iter = iter(celeba_loader)
-            affectNet_iter=iter(affectNet_loader)
+            rafd_iter = iter(rafd_iter)
             
             x_fixed, c_org_fixed = next(celeba_iter)
             x_fixed = x_fixed.to(self.device)
             
             c_celeba_list = self.create_labels(c_org_fixed, self.c_dim, 'CelebA-HQ', self.selected_attrs)
-            c_aNet_list = self.create_labels(c_org_fixed,self.c2_dim,'AffectNet')
+            c_rafd_list = self.create_labels(c_org_fixed,self.c2_dim,'RaFD')
 
-            zero_celeba=torch.zeros(batch_size,self.c_dim).to(self.device)
-            zero_aNet=torch.zeros(batch_size,self.c2_dim).to(self.device)
+            zero_celeba = torch.zeros(batch_size,self.c_dim).to(self.device)
+            zero_rafd = torch.zeros(batch_size,self.c2_dim).to(self.device)
 
-            mask_celeba=self.label2onehot(torch.zeros(batch_size),2).to(self.device)
-            mask_aNet=self.label2onehot(torch.ones(batch_size),2).to(self.device)
+            mask_celeba = self.label2onehot(torch.zeros(batch_size),2).to(self.device)
+            mask_rafd = self.label2onehot(torch.ones(batch_size),2).to(self.device)
 
             # Learning rate cache for decaying.
             g_lr = self.g_lr
             d_lr = self.d_lr
             
             for itr in range(start_iters,step_iters[step]):
-                for dataset in ['AffectNet','CelebA-HQ']:
+                for dataset in ['RaFD','CelebA-HQ']:
 
                     # Fade_in only for half the steps when moving on to the next step
-                    fade_in=(step!=0) and itr<step_iters[step]
+                    fade_in = (step!=0) and itr<step_iters[step]
                     
                     # Weight for fading in only for half the step_iters
                     alpha=-1 if not fade_in else min(1,(itr/(step_iters[step]//2))) 
@@ -462,7 +470,7 @@ class Solver(object):
                     #                             1. Preprocess input data             #
                     # ================================================================ #
 
-                    data_iter=celeba_iter if dataset=='CelebA-HQ' else affectNet_iter
+                    data_iter = celeba_iter if dataset=='CelebA-HQ' else rafd_iter
 
                     #Fetch real images and labels
                     try:
@@ -471,9 +479,9 @@ class Solver(object):
                         if dataset=='CelebA-HQ':
                             celeba_iter = iter(celeba_loader)
                             x_real, label_org = next(celeba_iter)
-                        elif dataset=='AffectNet':
-                            affectNet_iter=iter(affectNet_loader)
-                            x_real, label_org = next(affectNet_iter)
+                        elif dataset=='RaFD':
+                            rafd_iter = iter(rafd_iter)
+                            x_real, label_org = next(rafd_iter)
 
                     # Generate target domain labels randomly
                     rand_idx = torch.randperm(label_org.size(0))
@@ -490,7 +498,7 @@ class Solver(object):
                         mask = self.label2onehot(torch.zeros(x_real.size(0)),2).to(self.device)
                         c_org = torch.cat([c_org,zero,mask],dim=1)
                         c_trg = torch.cat([c_trg,zero,mask],dim=1)
-                    elif dataset == 'AffectNet':
+                    elif dataset == 'RaFD':
                         label_org = self.label2onehot(label_org, self.c2_dim).to(self.device)
                         label_trg = self.label2onehot(label_trg, self.c2_dim).to(self.device)
                         zero = torch.zeros(x_real.size(0),self.c_dim).to(self.device)
@@ -506,11 +514,9 @@ class Solver(object):
                     # =================================================================================== #
                     requires_grad(self.G,False)
                     requires_grad(self.D,True)
-                    self.G.zero_grad()
-                    self.D.zero_grad()
                     
                     # Compute loss with real images.
-                    out_src, out_cls = self.D(x_real,step,alpha)
+                    out_src_1, out_cls, h_1 = self.D(x_real,step,alpha)
                     out_cls = out_cls[:,:self.c_dim] if dataset=='CelebA-HQ' else out_cls[:,self.c_dim:]
                     d_loss_real = -torch.mean(out_src)
                     #Classification loss
@@ -518,19 +524,25 @@ class Solver(object):
                     
                     # Compute loss with fake images.
                     x_fake = self.G(x_real, c_trg,step,alpha) #take in step as argument
-                    out_src, out_cls = self.D(x_fake.detach(),step,alpha) #take in step as argument
+                    out_src, out_cls, _ = self.D(x_fake.detach(),step,alpha) #take in step as argument
                     d_loss_fake = torch.mean(out_src)
                     
                     # Compute loss for gradient penalty.
                     eps = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
                     x_hat = (eps * x_real.data + (1 - eps) * x_fake.data)
                     x_hat = Variable(x_hat,requires_grad=True)
-                    out_src, _ = self.D(x_hat,step,alpha) #Take in step as argument
+                    out_src, _, _ = self.D(x_hat,step,alpha) #Take in step as argument
                     d_loss_gp = self.gradient_penalty(out_src.sum(), x_hat)
                     
+                    # Compute loss for consistency term
+                    out_src_, _, h_1_ = self.D(x_real)
+                    d_CT = torch.mean((out_src_1 - out_src_).view(x_real.size(0), -1), dim=1)
+                    d_CT = d_CT.pow(2) + 0.1 * torch.mean((h_1 - h_1_).pow(2), dim = 1)
+                    d_CT = torch.mean(torch.max(torch.Tensor([0]).to(self.device), d_CT))
+
                     # Backward and optimize.
-                    d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-                    # self.reset_grad()
+                    d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp + self.lamda_ct * d_CT
+                    self.reset_grad()
                     d_loss.backward(retain_graph=True)
                     self.d_optimizer.step()
 
@@ -548,8 +560,6 @@ class Solver(object):
                     if (itr+1) % self.n_critic == 0:
                         requires_grad(self.G,True)
                         requires_grad(self.D,False)
-                        self.G.zero_grad()
-                        self.D.zero_grad()
                         
                         # Original-to-target domain.
                         x_fake = self.G(x_real, c_trg,step,alpha) 
@@ -566,7 +576,7 @@ class Solver(object):
 
                         # Backward and optimize.
                         g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
-                        # self.reset_grad()
+                        self.reset_grad()
                         g_loss.backward()
                         self.g_optimizer.step()
 
@@ -597,12 +607,12 @@ class Solver(object):
                             x_fake_list = [x_fixed]
                             
                             for c_fixed in c_celeba_list:
-                                c_trg=torch.cat([c_fixed,zero_aNet,mask_celeba],dim=1)
-                                x_fake_list.append(self.G(x_fixed, c_trg,step,alpha))
+                                c_trg=torch.cat([c_fixed, zero_rafd, mask_celeba], dim=1)
+                                x_fake_list.append(self.G(x_fixed, c_trg, step, alpha))
 
-                            for c_fixed in c_aNet_list:
-                                c_trg=torch.cat([zero_celeba,c_fixed,mask_aNet],dim=1)
-                                x_fake_list.append(self.G(x_fixed,c_trg,step,alpha))
+                            for c_fixed in c_rafd_list:
+                                c_trg=torch.cat([zero_celeba, c_fixed, mask_rafd], dim=1)
+                                x_fake_list.append(self.G(x_fixed, c_trg, step, alpha))
                             x_concat = torch.cat(x_fake_list, dim=3)
                             
                             if self.use_tensorboard:
@@ -853,7 +863,7 @@ class Solver(object):
         """ Generate 'num' interpolated images b/w src and target"""
         all_imgs=[]
         for i in range(num+1):
-            curr_latent=src_latent+i*(trgt_latent-src_latent)/num #Interpolate!
+            curr_latent=src_latent+ i * (trgt_latent-src_latent)/num #Interpolate!
             with torch.no_grad():
                 fake_img=self.G(curr_latent,step=self.num_steps,partial=True)
                 all_imgs.append(fake_img)

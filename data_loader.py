@@ -251,8 +251,6 @@ def get_loader(dataset,dict_,step=0,batch_size=16):
         dataset = ImageFolder(dict_['img_dir'], transform)
     elif dataset == 'CelebA-HQ':
         dataset = CelebA_HQ(dict_['h5_path'],dict_['hq_attr_path'], dict_['attr_path'],dict_['selected_attrs'],transform,dict_['mode'],step)
-    elif dataset == 'AffectNet':
-        dataset=AffectNet(dict_['img_dir'],pre_labels_file=dict_['aNet_labels'],mode=dict_['mode'],transform=transform)
 
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
