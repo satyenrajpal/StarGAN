@@ -285,9 +285,9 @@ class Solver(object):
                 requires_grad(self.D,True)
                 
                 # Compute loss with real images.
-                out_src_1, out_cls, h_1 = self.D(x_real,step,alpha)
+                out_src_1, out_cls, h_1 = self.D(x_real, step, alpha)
                 d_loss_real = -torch.mean(out_src_1)
-                
+
                 #Classification loss
                 d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
                 
@@ -305,7 +305,7 @@ class Solver(object):
                 
                 # Compute loss for consistency term
                 out_src_, _, h_1_ = self.D(x_real)
-                d_CT = torch.mean((out_src_1 - out_src_).view(x_real.size(0), -1), dim=1)
+                d_CT = torch.mean((out_src_1 - out_src_).view(x_real.size(0), -1), dim = 1)
                 d_CT = d_CT.pow(2) + 0.1 * torch.mean((h_1 - h_1_).pow(2), dim = 1)
                 d_CT = torch.mean(torch.max(torch.Tensor([0]).to(self.device), d_CT))
 

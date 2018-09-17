@@ -147,10 +147,10 @@ class Discriminator(nn.Module):
         
         #filters->256(32^2),128(64^2),64(128^2) ...
         nF=[256//2**(i-p) for i in range(p,q+1)] 
-        self.from_rgb=nn.ModuleList([nn.Conv2d(3,i,kernel_size=3,padding=1) for i in nF])
+        self.from_rgb = nn.ModuleList([nn.Conv2d(3,i,kernel_size=3,padding=1) for i in nF])
         
         # Downsampling layers (for higher resolutions) 
-        self.progressive=nn.ModuleList([ConvBlockDropout(nF[i],nF[i-1]) for i in range(len(nF)-1,0,-1)])
+        self.progressive = nn.ModuleList([ConvBlockDropout(nF[i],nF[i-1]) for i in range(len(nF)-1,0,-1)])
         
         # Downsample from 256x32x32 -> 512x16x16 -> 1024x8x8 -> 2048x4x4 -> 4096x2x2
         #32x32 is treated as Baseline step 
@@ -161,6 +161,7 @@ class Discriminator(nn.Module):
         for i in range(len(res)-1) :
             block.append(nn.Conv2d(int(res[i]), int(res[i+1]), kernel_size=4, stride=2, padding=1))
             block.append(nn.LeakyReLU(0.01))
+            block.append(nn.Dropout(p = 0.5))
 
         self.down_sample = nn.Sequential(*block)
         self.conv1 = nn.Conv2d(res[-1], 1, kernel_size=3, stride=1, padding=1, bias=False)
