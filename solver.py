@@ -265,8 +265,8 @@ class Solver(object):
             # =================================================================================== #
 
             # Compute loss with real images.
-            out_src, out_cls, h_1 = self.D(x_real)
-            d_loss_real = - torch.mean(out_src)
+            out_src_1, out_cls, h_1 = self.D(x_real)
+            d_loss_real = - torch.mean(out_src_1)
             d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
 
             # Compute loss with fake images.
@@ -283,7 +283,7 @@ class Solver(object):
             # Consistency Loss 
             out_src_, _, h_1_ = self.D(x_real)
             
-            CT = torch.mean((out_src - out_src_).view(x_real.size(0), -1),dim=1)
+            CT = torch.mean((out_src_1 - out_src_).view(x_real.size(0), -1),dim=1)
             CT = CT.pow(2) + 0.1 * torch.mean((h_1 - h_1_).pow(2), dim=1)
             CT = torch.mean(torch.max(torch.Tensor([0]).to(self.device),CT))
 
